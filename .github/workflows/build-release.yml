@@ -1,0 +1,119 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            name: Windows-x86_64
+            os: Windows
+            spec: packaging/OpenImaris-windows.spec
+            artifact: OpenImaris-Windows-x86_64.exe
+          - runner: macos-14
+            name: macOS-arm64
+            os: macOS
+            spec: packaging/OpenImaris-mac.spec
+            artifact: OpenImaris-macOS-arm64.dmg
+          - runner: macos-13
+            name: macOS-x86_64
+            os: macOS
+            spec: packaging/OpenImaris-mac.spec
+            artifact: OpenImaris-macOS-x86_64.dmg
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Create Windows application icon
+        if: matrix.os == 'Windows'
+        run: uv run python packaging/make_ico.py
+
+      - name: Create macOS application icon
+        if: matrix.os == 'macOS'
+        run: uv run python packaging/make_icns.py
+
+      - name: Build application
+        run: uv run --with pyinstaller pyinstaller --noconfirm --clean "${{ matrix.spec }}"
+
+      - name: Name Windows executable
+        if: matrix.os == 'Windows'
+        run: Copy-Item dist/OpenImaris.exe "dist/${{ matrix.artifact }}"
+
+      - name: Create DMG
+        if: matrix.os == 'macOS'
+        run: |
+          rm -rf build/dmg
+          mkdir -p build/dmg
+          ditto dist/OpenImaris.app build/dmg/OpenImaris.app
+          ln -s /Applications build/dmg/Applications
+          hdiutil create \
+            -volname OpenImaris \
+            -srcfolder build/dmg \
+            -ov \
+            -format UDZO \
+            "dist/${{ matrix.artifact }}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenImaris-${{ matrix.name }}
+          path: dist/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: OpenImaris-*
+          path: release
+          merge-multiple: true
+
+      - name: Create checksums
+        run: sha256sum release/OpenImaris-* > release/SHA256SUMS
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/* \
+              --title "OpenImaris $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
