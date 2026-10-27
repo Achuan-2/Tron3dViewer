@@ -8,10 +8,22 @@ from unittest.mock import patch
 
 import numpy as np
 from PIL import Image, ImageDraw
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter, Transformation
 from PySide6.QtWidgets import QApplication
 
 from tron3d.exporter import export_pdf
+
+
+def raster_mapping(pdf: Path, source_size: tuple[int, int], rendered_size: tuple[int, int]):
+    """Read the embedded image transform so samples survive tight page sizing."""
+    page = PdfReader(pdf).pages[0]
+    matrices = []
+    page.extract_text(visitor_operand_before=lambda op, args, cm, tm: matrices.append(cm) if op == b"Do" else None)
+    a, b, c, d, e, f = matrices[0]
+    assert b == c == 0
+    rx, ry = rendered_size[0] / float(page.mediabox.width), rendered_size[1] / float(page.mediabox.height)
+    return (a * rx / source_size[0], d * ry / source_size[1],
+            e * rx, (float(page.mediabox.height) - f - d) * ry)
 
 
 class PdfColorTest(unittest.TestCase):
@@ -57,6 +69,8 @@ class PdfColorTest(unittest.TestCase):
             with patch("tron3d.exporter._render_scene", return_value=(background, items, frame)):
                 export_pdf(view, path)
             page = PdfReader(path).pages[0]
+            self.assertAlmostEqual(float(page.mediabox.width) * 2.54 / 72, 16.0, places=6)
+            self.assertAlmostEqual(float(page.mediabox.height) * 2.54 / 72, 12.0, places=6)
             font = next(iter(page["/Resources"]["/Font"].values())).get_object()
             self.assertEqual(font["/BaseFont"], "/ArialMT")
             self.assertEqual(font["/Subtype"], "/TrueType")
@@ -75,11 +89,21 @@ class PdfColorTest(unittest.TestCase):
             path = Path(directory) / "widths.pdf"
             with patch("tron3d.exporter._render_scene", return_value=(background, [], [])):
                 export_pdf(view, path, transparent_outside_frame=False, frame_width_pt=2, grid_width_pt=0.5)
-            content = PdfReader(path).pages[0].get_contents().get_data().decode("ascii")
+            page = PdfReader(path).pages[0]
+            content = page.get_contents().get_data().decode("ascii")
             self.assertRegex(content, r"33\.3333\d* w")
-            grid_path = content.split("/GState", 1)[1].split(" gs\n", 1)[1].split("h f", 1)[0]
-            coordinates = [float(token) for token in grid_path.split() if token[0].isdigit()]
-            self.assertAlmostEqual(max(coordinates[::2]) - min(coordinates[::2]), 1200 / 72 * 0.5, places=3)
+            # Qt outlines translucent grid strokes as a filled rectangle.
+            paths, current = [], []
+            for operands, operator in page.get_contents().operations:
+                if operator in (b"m", b"l"):
+                    current.append(tuple(float(value) for value in operands))
+                elif operator in (b"f", b"f*"):
+                    paths.append(current)
+                    current = []
+                elif operator in (b"S", b"n"):
+                    current = []
+            self.assertTrue(any(abs(np.ptp(points, axis=0)[0] - 1200 / 72 * 0.5) < 0.001
+                                for points in paths if len(points) >= 4))
 
 
 @unittest.skipUnless(shutil.which("pdftocairo"), "Poppler is needed to inspect PDF transparency")
@@ -114,27 +138,34 @@ class PdfFrameBackgroundTest(unittest.TestCase):
                             )
                             with Image.open(output / "frame.png") as rendered:
                                 pixels = np.asarray(rendered.convert("RGBA"))
+                            sx, sy, tx, ty = raster_mapping(output / "frame.pdf", (400, 300), rendered.size)
+
+                            def sample(x, y):
+                                return pixels[round(y * sy + ty), round(x * sx + tx)]
+
                             self.assertEqual(pixels[10, 10, 3], 0 if transparent else 255)
                             expected = (0, 0, 0, 255) if background_color == "black" else (255, 255, 255, 255)
-                            np.testing.assert_array_equal(pixels[110, 150], expected)
+                            np.testing.assert_array_equal(sample(150, 110), expected)
                             # Allow rounding in the PDF renderer's sRGB conversion.
-                            np.testing.assert_allclose(pixels[150, 200], (0, 255, 0, 255), atol=2)
+                            np.testing.assert_allclose(sample(200, 150), (0, 255, 0, 255), atol=2)
                             if transparent:
                                 # Outside the slanted edge but inside its bounding rectangle.
-                                self.assertEqual(pixels[55, 105, 3], 0)
-                                text = pixels[130:170, 35:80]
+                                self.assertEqual(sample(105, 55)[3], 0)
+                                text = pixels[max(0, round(130 * sy + ty)):round(170 * sy + ty),
+                                              max(0, round(35 * sx + tx)):max(0, round(80 * sx + tx))]
                                 opaque = text[..., 3] > 200
                                 self.assertEqual(bool(opaque.any()), show_text)
                                 if show_text:
                                     self.assertTrue(np.all(text[opaque, :3] == 0))
-                                    tick = pixels[148:153, 86:98]
+                                    tick = pixels[round(148 * sy + ty):round(153 * sy + ty),
+                                                  round(86 * sx + tx):round(98 * sx + tx)]
                                     self.assertTrue(np.any(tick[..., 3] > 200))
                                     self.assertTrue(np.all(tick[tick[..., 3] > 200, :3] == 0))
 
     def test_default_export_keeps_the_outside_transparent(self):
         view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0.65, 0.68, 0.72, 1)))
         background = Image.new("RGB", (100, 100), "black")
-        frame = [(20, 20), (80, 20), (80, 80), (20, 80)]
+        frame = [(50, 20), (80, 50), (50, 80), (20, 50)]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "default.pdf"
             with patch("tron3d.exporter._render_scene", return_value=(background, [], frame)):
@@ -145,6 +176,55 @@ class PdfFrameBackgroundTest(unittest.TestCase):
                 pixels = np.asarray(rendered.convert("RGBA"))
             self.assertEqual(pixels[10, 10, 3], 0)
             np.testing.assert_array_equal(pixels[50, 50], (0, 0, 0, 255))
+            rows, columns = np.nonzero(pixels[..., 3])
+            self.assertLessEqual(rows.min(), 1)
+            self.assertLessEqual(columns.min(), 1)
+            self.assertGreaterEqual(rows.max(), pixels.shape[0] - 2)
+            self.assertGreaterEqual(columns.max(), pixels.shape[1] - 2)
+
+    def test_tight_page_includes_outside_labels_and_rotated_glyphs(self):
+        view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0.65, 0.68, 0.72, 1)))
+        background = Image.new("RGB", (400, 300), "black")
+        frame = [(80, 40), (300, 40), (300, 220), (80, 220)]
+        items = [
+            {"text": "X [µm]", "x": 10, "y": 320, "kind": "labels", "axis": "x"},
+            {"text": "Y [µm]", "x": 350, "y": 340, "kind": "labels", "axis": "y"},
+            {"text": "Z [µm]", "x": 430, "y": 150, "kind": "labels", "axis": "z", "rotation": -90},
+            {"text": "1200", "x": 300, "y": -20, "kind": "ticks", "axis": "z"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            for font_size in (8, 24):
+                with self.subTest(font_size=font_size):
+                    pdf = output / "tight.pdf"
+                    with patch("tron3d.exporter._render_scene", return_value=(background, items, frame)):
+                        export_pdf(view, pdf, width_cm=10.16, height_cm=7.62, font_size=font_size)
+                    writer = PdfWriter(clone_from=pdf)
+                    page = writer.pages[0]
+                    self.assertAlmostEqual(float(page.mediabox.width), 288, places=6)
+                    self.assertAlmostEqual(float(page.mediabox.height), 216, places=6)
+                    for item in items:
+                        self.assertIn(item["text"], page.extract_text())
+                    # Expand the page to expose any ink clipped by the original
+                    # MediaBox. No glyph/stroke may appear in the added border.
+                    page.add_transformation(Transformation().translate(36, 36))
+                    page.mediabox.upper_right = (360, 288)
+                    writer.write(output / "padded.pdf")
+                    for name in ("tight", "padded"):
+                        subprocess.run([shutil.which("pdftocairo"), "-r", "100", "-singlefile", "-png", "-transp",
+                                        str(output / f"{name}.pdf"), str(output / name)], check=True, capture_output=True)
+                    with Image.open(output / "padded.png") as rendered:
+                        rows, columns = np.nonzero(np.asarray(rendered)[..., 3] > 10)
+                    self.assertGreaterEqual(columns.min(), 49)
+                    self.assertGreaterEqual(rows.min(), 49)
+                    self.assertLessEqual(columns.max(), 450)
+                    self.assertLessEqual(rows.max(), 350)
+                    with Image.open(output / "tight.png") as rendered:
+                        rows, columns = np.nonzero(np.asarray(rendered)[..., 3] > 10)
+                    self.assertLessEqual(rows.min(), 1)
+                    self.assertLessEqual(columns.min(), 1)
+                    self.assertGreaterEqual(rows.max(), 298)
+                    self.assertGreaterEqual(columns.max(), 398)
 
 
 @unittest.skipUnless(shutil.which("pdftoppm"), "Poppler is needed to inspect rendered PDF text")
@@ -179,14 +259,14 @@ class PdfTextAlignmentTest(unittest.TestCase):
                         )
                         with Image.open(output / "frame.png") as rendered:
                             pixels = np.asarray(rendered.convert("RGB"))
+                        sx, sy, tx, ty = raster_mapping(output / "frame.pdf", (400, 300), rendered.size)
                         rows, columns = np.nonzero(np.all(pixels < 100, axis=2))
                         self.assertGreater(len(rows), 0)
                         # Every visible glyph pixel must lie outside the frame's
                         # supporting edge, on either side and even for steep edges.
-                        glyphs = np.column_stack(((columns + 0.5) * 400 / pixels.shape[1],
-                                                 (rows + 0.5) * 300 / pixels.shape[0]))
+                        glyphs = np.column_stack(((columns + 0.5 - tx) / sx, (rows + 0.5 - ty) / sy))
                         clearance = np.min(glyphs @ normal) - np.max(frame @ normal)
-                        self.assertGreater(clearance, 1.0)
+                        self.assertGreater(clearance / np.linalg.norm(normal / (sx, sy)), 1.0)
 
     def test_rendered_text_is_centered_on_png_anchors(self):
         # Vary digit widths and X positions as on an upright or rolled Z axis.

@@ -48,6 +48,23 @@ class WidgetsTest(unittest.TestCase):
         self.addCleanup(without_grid.close)
         self.assertTrue(without_grid.grid_width_spin.isHidden())
 
+    def test_pdf_dialog_sizes_content_when_dimensions_or_text_change(self):
+        # Model a scene with fixed-height text outside the scaled volume.
+        def figure_size(*, width_cm=None, height_cm=None, font_size, **options):
+            if width_cm is not None:
+                return width_cm, width_cm * 2 + font_size / 10
+            return (height_cm - font_size / 10) / 2, height_cm
+
+        dialog = PdfExportDialog(None, 4 / 3, figure_size=figure_size)
+        self.addCleanup(dialog.close)
+        self.assertAlmostEqual(dialog.height_spin.value(), 32.8)
+        dialog.width_spin.setValue(10)
+        self.assertAlmostEqual(dialog.height_spin.value(), 20.8)
+        dialog.height_spin.setValue(16.8)
+        self.assertAlmostEqual(dialog.width_spin.value(), 8)
+        dialog.font_spin.setValue(24)
+        self.assertAlmostEqual(dialog.height_spin.value(), 18.4)
+
     def test_pdf_dialog_remembers_settings_and_uses_current_aspect_ratio(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(directory + "/settings.ini", QSettings.Format.IniFormat)

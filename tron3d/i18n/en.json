@@ -1,4 +1,6 @@
 {
+  "宽高包含完整坐标文字，自动去除外围留白并保持三维图像比例。": "Dimensions include all axis text. Outer whitespace is removed automatically while preserving the volume proportions.",
+  "页面过小，无法完整容纳坐标文字，请增大宽高或减小字体。": "The page is too small to fit all axis text. Increase its dimensions or reduce the font size.",
   "Tron 3D viewer — 三维显微图像查看器": "Tron 3D viewer — 3D Microscopy Viewer",
   "打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放": "Open an IMS / TIFF image to start 3D viewing; left-drag to rotate, right-drag to pan, scroll to zoom",
   "文件(&F)": "&File",

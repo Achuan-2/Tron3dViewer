@@ -122,7 +122,7 @@ The Box, Grid, Ticks, and Labels switches follow your last application preferenc
 ### Export images
 
 - **PNG**: Under **Save and Export (保存与导出)**, select a 1×, 2×, or 4× scale, then click **Export PNG (导出 PNG)**.
-- **PDF**: Click **Export PDF (Vector Text) (导出 PDF（矢量文字）)** and set the page width, page height, font size, and rendering scale. The 3D volume is embedded as a raster image, while axis ticks and text remain vector elements.
+- **PDF**: Click **Export PDF (Vector Text) (导出 PDF（矢量文字）)** and set the figure dimensions, font size, and rendering scale. Dimensions include all axis text with no outer margin. Changing either dimension or the font size updates the other dimension to preserve the volume proportions at the current view. The 3D volume is embedded as a raster image, while axis ticks and text remain vector elements.
 - Exports are also available from the File menu; `Ctrl+Shift+E` exports a PDF.
 
 > Adjustments and image exports do not modify source files. Use Save IMS to write the settings to an IMS file.

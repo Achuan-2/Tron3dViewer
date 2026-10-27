@@ -4,10 +4,11 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from PySide6.QtGui import QFont, QFontMetricsF, QImage
 from PySide6.QtWidgets import QApplication
 
 from tron3d.data import VolumeData
-from tron3d.exporter import _render_scene, render_image
+from tron3d.exporter import _fit_pdf_content, _render_scene, pdf_figure_size, render_image
 from tron3d.volume_view import VolumeView
 
 
@@ -60,6 +61,26 @@ class VolumeInteractionTest(unittest.TestCase):
         self.assertNotIn("grid", image.info["axis_lines"])
         self.assertTrue(self.view.axes.visuals["box"][0].visible)
         self.assertFalse(self.view.axes.visuals["grid"][0].visible)
+
+    def test_pdf_tight_dimensions_preserve_volume_proportions_at_capture_scale(self):
+        device = QImage(1, 1, QImage.Format.Format_RGB888)
+        device.setDotsPerMeterX(round(1200 / 0.0254))
+        device.setDotsPerMeterY(round(1200 / 0.0254))
+        for font_size in (8, 24):
+            with self.subTest(font_size=font_size):
+                camera = self.view.camera.get_state()
+                dimensions = pdf_figure_size(self.view, width_cm=10, font_size=font_size)
+                inverse = pdf_figure_size(self.view, height_cm=dimensions[1], font_size=font_size)
+                np.testing.assert_allclose(inverse, dimensions, atol=1e-5)
+                self.assertEqual(self.view.camera.get_state(), camera)
+                image, items, frame = _render_scene(self.view, 2, include_text=False, vector_axis_lines=True)
+                font = QFont("Arial")
+                font.setPointSizeF(font_size)
+                sx, sy, _, _ = _fit_pdf_content(
+                    items, frame, image.info["axis_lines"], QFontMetricsF(font, device),
+                    np.asarray(dimensions) * 1200 / 2.54, 1200 / 72, 1200 / 72 * 0.5,
+                )
+                self.assertAlmostEqual(sx / sy, 1.0, places=5)
 
     def test_grid_uses_far_faces_through_rotation_and_inversion(self):
         size = np.asarray(self.view.data.physical_size)

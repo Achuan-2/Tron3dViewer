@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from .axes import DEFAULT_AXIS_VISIBILITY
 from .data import VolumeData, load_volume
-from .exporter import export_pdf, export_png
+from .exporter import export_pdf, export_png, pdf_figure_size
 from .i18n import LANGUAGES, current_language, set_language, tr
 from .ims import save_ims
 from .volume_view import CHANNEL_COLORS, VolumeView
@@ -718,6 +718,7 @@ class MainWindow(QMainWindow):
         width, height = self.volume_view.canvas.size
         dialog = PdfExportDialog(
             self, width / height, show_grid=self.axis_checks["grid"].isChecked(), settings=self.settings,
+            figure_size=lambda **options: pdf_figure_size(self.volume_view, **options),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return

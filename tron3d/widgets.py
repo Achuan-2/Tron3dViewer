@@ -87,7 +87,7 @@ class NoWheelSlider(QSlider):
 
 
 class PdfExportDialog(QDialog):
-    def __init__(self, parent, aspect_ratio: float, show_grid: bool = True, settings=None) -> None:
+    def __init__(self, parent, aspect_ratio: float, show_grid: bool = True, settings=None, figure_size=None) -> None:
         super().__init__(parent)
 
         def saved(key, default, value_type):
@@ -106,6 +106,7 @@ class PdfExportDialog(QDialog):
             spin.setDecimals(2)
             spin.setSuffix(" cm")
         self._aspect_ratio = aspect_ratio
+        self._figure_size = figure_size
         self.width_spin.setValue(saved("width_cm", 16.0, float))
         self.height_spin.setValue(self.width_spin.value() / aspect_ratio)
         self.width_spin.valueChanged.connect(self._update_height)
@@ -136,6 +137,12 @@ class PdfExportDialog(QDialog):
         self.transparent_outside_frame_check.setChecked(saved("transparent_outside_frame", True, bool))
         self.transparent_outside_frame_check.setToolTip(tr("仅保留 Frame 内的当前背景，外侧透明，文字和外侧刻度线为黑色，方便科研组图。"))
         layout.addWidget(self.transparent_outside_frame_check)
+        size_tip = tr("宽高包含完整坐标文字，自动去除外围留白并保持三维图像比例。")
+        self.width_spin.setToolTip(size_tip)
+        self.height_spin.setToolTip(size_tip)
+        for spin in (self.font_spin, self.frame_width_spin, self.grid_width_spin):
+            spin.valueChanged.connect(lambda _: self._update_height(self.width_spin.value()))
+        self._update_height(self.width_spin.value())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -143,11 +150,27 @@ class PdfExportDialog(QDialog):
 
     def _update_height(self, width: float) -> None:
         blocker = QSignalBlocker(self.height_spin)
-        self.height_spin.setValue(width / self._aspect_ratio)
+        height = width / self._aspect_ratio
+        if self._figure_size is not None:
+            try:
+                _, height = self._figure_size(width_cm=width, **self._size_options())
+            except ValueError:
+                return
+        self.height_spin.setValue(height)
 
     def _update_width(self, height: float) -> None:
         blocker = QSignalBlocker(self.width_spin)
-        self.width_spin.setValue(height * self._aspect_ratio)
+        width = height * self._aspect_ratio
+        if self._figure_size is not None:
+            try:
+                width, _ = self._figure_size(height_cm=height, **self._size_options())
+            except ValueError:
+                return
+        self.width_spin.setValue(width)
+
+    def _size_options(self) -> dict:
+        return dict(font_size=self.font_spin.value(), frame_width_pt=self.frame_width_spin.value(),
+                    grid_width_pt=self.grid_width_spin.value())
 
     def save_settings(self, settings) -> None:
         values = {

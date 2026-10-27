@@ -5,13 +5,13 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from pypdf import PdfWriter
+from pypdf import PdfWriter, Transformation
 from pypdf.generic import (
     ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject,
 )
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QPointF, QRectF, QSizeF
 from PySide6.QtGui import (
-    QColor, QColorSpace, QFont, QFontMetricsF, QImage, QPageSize, QPainter, QPainterPath, QPdfWriter, QPen,
+    QColor, QColorSpace, QFont, QFontMetricsF, QImage, QPageSize, QPainter, QPainterPath, QPdfWriter, QPen, QTransform,
 )
 from PySide6.QtWidgets import QApplication
 
@@ -19,6 +19,36 @@ from .axis_layout import layout_axis_text
 from .i18n import tr
 from .pdf_fonts import use_system_arial
 from .volume_view import VolumeView
+
+
+def _project_pdf_scene(view: VolumeView, pixel_size=None, line_visibility=None) -> tuple[list[dict], list, dict]:
+    """Share projected geometry between the size dialog and the PDF capture."""
+    scale = np.asarray(pixel_size or view.canvas.size) / view.canvas.size
+    size = np.asarray(view.axes.size, dtype=float)
+
+    def project(point):
+        return view.axes._project(view.view.scene.transform, point) * scale
+
+    frame = [project((x, y, z)) for x in (0, size[0]) for y in (0, size[1]) for z in (0, size[2])]
+    items = view.projected_axis_text()
+    for item, source in zip(items, view.axes.visible_text_items()):
+        axis = "xyz".index(item["axis"])
+        start = np.clip(np.asarray(source.get("tick_start", source["position"]), dtype=float), 0, size)
+        end = start.copy()
+        start[axis], end[axis] = 0, size[axis]
+        item["frame"] = frame
+        item["axis_line"] = [project(start), project(end)]
+        item["x"] *= scale[0]
+        item["y"] *= scale[1]
+        for key in ("tick_start", "tick_end"):
+            if key in item:
+                item[key] = np.asarray(item[key]) * scale
+    visibility = view.axes.visibility if line_visibility is None else line_visibility
+    lines = {
+        kind: [project(point) for point in view.axes.visuals[kind][0].pos]
+        for kind in ("box", "grid") if visibility[kind] and view.axes.visuals.get(kind)
+    }
+    return items, frame, lines
 
 
 def _render_scene(
@@ -55,41 +85,11 @@ def _render_scene(
         QApplication.processEvents()
         pixels = view.canvas.render()
         if not include_text:
-            text_items = view.projected_axis_text()
-            size = np.asarray(view.axes.size, dtype=float)
-            projection_scale = np.array((pixels.shape[1], pixels.shape[0])) / view.canvas.size
-            frame = [
-                view.axes._project(view.view.scene.transform, (x, y, z)) * projection_scale
-                for x in (0, size[0]) for y in (0, size[1]) for z in (0, size[2])
-            ]
+            text_items, frame, lines = _project_pdf_scene(
+                view, (pixels.shape[1], pixels.shape[0]), original_line_visibility,
+            )
             if vector_axis_lines:
-                for kind in ("box", "grid"):
-                    if original_line_visibility[kind] and view.axes.visuals.get(kind):
-                        positions = np.asarray(view.axes.visuals[kind][0].pos)
-                        axis_lines[kind] = [
-                            view.axes._project(view.view.scene.transform, point) * projection_scale
-                            for point in positions
-                        ]
-            for item, source in zip(text_items, view.axes.visible_text_items()):
-                if item.get("axis") in ("x", "y", "z"):
-                    axis = "xyz".index(item["axis"])
-                    start = np.clip(np.asarray(source.get("tick_start", source["position"]), dtype=float), 0, size)
-                    end = start.copy()
-                    start[axis], end[axis] = 0, size[axis]
-                    item["frame"] = frame
-                    item["axis_line"] = [
-                        view.axes._project(view.view.scene.transform, point) * projection_scale for point in (start, end)
-                    ]
-            logical_width, logical_height = view.canvas.size
-            pixel_scale_x = pixels.shape[1] / logical_width
-            pixel_scale_y = pixels.shape[0] / logical_height
-            for item in text_items:
-                item["x"] *= pixel_scale_x
-                item["y"] *= pixel_scale_y
-                for key in ("tick_start", "tick_end"):
-                    if key in item:
-                        point = np.asarray(item[key], dtype=float)
-                        item[key] = (point[0] * pixel_scale_x, point[1] * pixel_scale_y)
+                axis_lines = lines
     finally:
         view.axes.set_text_visible(original_text_visibility)
         for kind, visible in original_line_visibility.items():
@@ -195,7 +195,93 @@ def _frame_outline(points: list) -> list[tuple[float, float]]:
     return half_hull(ordered)[:-1] + half_hull(reversed(ordered))[:-1]
 
 
-def _write_srgb_pdf(data: bytes, path: str | Path) -> None:
+def _pdf_content_layout(items: list[dict], frame: list, axis_lines: dict, metrics: QFontMetricsF,
+                        sx: float, sy: float, frame_width: float, grid_width: float) -> tuple[list[dict], QRectF]:
+    """Measure the painted scene, including glyph rotation and stroke extents."""
+    placements = _layout_pdf_ticks(items, metrics, sx, sy)
+    bounds = QRectF()
+    if len(frame):
+        points = np.asarray(frame) * (sx, sy)
+        lower, upper = points.min(axis=0), points.max(axis=0)
+        bounds = QRectF(QPointF(*lower), QPointF(*upper))
+    for kind, width in (("box", frame_width), ("grid", grid_width)):
+        points = np.asarray(axis_lines.get(kind, []))
+        if len(points):
+            points = points * (sx, sy)
+            lower, upper = points.min(axis=0) - width / 2, points.max(axis=0) + width / 2
+            bounds = bounds.united(QRectF(QPointF(*lower), QPointF(*upper)))
+    for item in placements:
+        if item["kind"] == "labels" and item.get("axis") != "z":
+            item["x"], item["y"] = _clear_axis_label_frame(item, placements, metrics, 1, 1)
+        glyphs = metrics.tightBoundingRect(item["text"])
+        glyphs.translate(-glyphs.center())
+        transform = QTransform().translate(item["x"], item["y"]).rotate(item.get("rotation", 0))
+        bounds = bounds.united(transform.mapRect(glyphs))
+        if "tick_start" in item:
+            # Tick vectors are drawn with a fixed 0.5 pt pen.
+            points = np.asarray((item["tick_start"], item["tick_end"]))
+            radius = metrics.fontDpi() / 72 * 0.25
+            lower, upper = points.min(axis=0) - radius, points.max(axis=0) + radius
+            bounds = bounds.united(QRectF(QPointF(*lower), QPointF(*upper)))
+    return placements, bounds
+
+
+def _fit_pdf_content(items, frame, axis_lines, metrics, size, frame_width, grid_width):
+    """Fit geometry before painting; fixed-size text must never be clipped.
+
+    The dialog supplies a content-based aspect ratio, so its normal export
+    uses equal X/Y scales. Independent API dimensions retain their existing
+    behaviour while still including every label in the requested page size.
+    """
+    sx = sy = 1.0
+    for _ in range(100):
+        placements, bounds = _pdf_content_layout(
+            items, frame, axis_lines, metrics, sx, sy, frame_width, grid_width,
+        )
+        if bounds.isEmpty():
+            raise ValueError(tr("无法确定 Frame 轮廓，请调整视角后重试"))
+        factors = np.asarray(size) / (bounds.width(), bounds.height())
+        if np.max(np.abs(factors - 1)) < 1e-7:
+            return sx, sy, placements, bounds
+        sx *= factors[0]
+        sy *= factors[1]
+    raise ValueError(tr("页面过小，无法完整容纳坐标文字，请增大宽高或减小字体。"))
+
+
+def pdf_figure_size(view: VolumeView, *, width_cm: float | None = None, height_cm: float | None = None,
+                    font_size: float = 8.0, frame_width_pt: float = 1.0,
+                    grid_width_pt: float = 0.5) -> tuple[float, float]:
+    """Size the tight page without rendering or changing the current camera.
+
+    Exactly one dimension is fixed. Solve the uniform scene scale with the
+    same PDF-device font metrics used by export, preserving volume proportions.
+    """
+    if (width_cm is None) == (height_cm is None):
+        raise ValueError("Specify exactly one PDF figure dimension")
+    view.finish_interaction()
+    items, frame, lines = _project_pdf_scene(view)
+    # Use the same 1200 DPI as QPdfWriter, without opening a PDF paint device.
+    device = QImage(1, 1, QImage.Format.Format_RGB888)
+    device.setDotsPerMeterX(round(1200 / 0.0254))
+    device.setDotsPerMeterY(round(1200 / 0.0254))
+    font = QFont("Arial")
+    font.setPointSizeF(font_size)
+    metrics = QFontMetricsF(font, device)
+    fixed_width = width_cm is not None
+    target = (width_cm if fixed_width else height_cm) * 1200 / 2.54
+    scale = 1.0
+    for _ in range(100):
+        _, bounds = _pdf_content_layout(items, frame, lines, metrics, scale, scale,
+                                        frame_width_pt * 1200 / 72, grid_width_pt * 1200 / 72)
+        length = bounds.width() if fixed_width else bounds.height()
+        factor = target / max(length, 1e-9)
+        if abs(factor - 1) < 1e-7:
+            return bounds.width() * 2.54 / 1200, bounds.height() * 2.54 / 1200
+        scale *= factor
+    raise ValueError(tr("页面过小，无法完整容纳坐标文字，请增大宽高或减小字体。"))
+
+
+def _write_srgb_pdf(data: bytes, path: str | Path, page_size_pt: tuple[float, float]) -> None:
     """Tag Qt's device RGB image and vectors with the same sRGB profile.
 
     Qt ignores QImage profiles in ordinary PDF output. Explicit ICCBased
@@ -207,6 +293,11 @@ def _write_srgb_pdf(data: bytes, path: str | Path) -> None:
     profile.update({NameObject("/N"): NumberObject(3), NameObject("/Alternate"): NameObject("/DeviceRGB")})
     srgb = ArrayObject([NameObject("/ICCBased"), writer._add_object(profile.flate_encode())])
     for page in writer.pages:
+        # Qt rounds its MediaBox to whole points. Keep the requested physical
+        # size and top-left origin, including glyphs in the fractional strip.
+        width, height = page_size_pt
+        page.add_transformation(Transformation().translate(0, height - float(page.mediabox.height)))
+        page.mediabox.upper_right = (width, height)
         use_system_arial(page, writer)
         resources = page["/Resources"]
         colors = resources["/ColorSpace"]
@@ -262,9 +353,22 @@ def export_pdf(
     try:
         # JPEG chroma subsampling changes narrow, saturated fluorescence details.
         painter.setRenderHint(QPainter.RenderHint.LosslessImageRendering, True)
-        page = QRectF(0, 0, writer.width(), writer.height())
-        sx = writer.width() / image.width
-        sy = writer.height() / image.height
+        page = QRectF(0, 0, width_cm * writer.resolution() / 2.54, height_cm * writer.resolution() / 2.54)
+        font = QFont("Arial")
+        font.setPointSizeF(font_size)
+        painter.setFont(font)
+        metrics = QFontMetricsF(font, writer)
+        # Empty synthetic scenes have no frame; keep the captured image usable.
+        content_frame = frame if len(frame) else [(0, 0), (image.width, image.height)]
+        sx, sy, placements, bounds = _fit_pdf_content(
+            text_items, content_frame, image.info.get("axis_lines", {}), metrics,
+            (page.width(), page.height()), frame_width_pt * writer.resolution() / 72,
+            grid_width_pt * writer.resolution() / 72,
+        )
+        if not transparent_outside_frame:
+            painter.fillRect(page, QColor(getattr(view, "background", "black")))
+        painter.translate(-bounds.left(), -bounds.top())
+        raster_rect = QRectF(0, 0, image.width * sx, image.height * sy)
         if transparent_outside_frame:
             outline = _frame_outline(frame)
             if len(outline) < 3:
@@ -277,13 +381,13 @@ def export_pdf(
             # rather than baking a white background into the image.
             painter.save()
             painter.setClipPath(clip)
-            painter.drawImage(page, qimage)
+            painter.drawImage(raster_rect, qimage)
             painter.restore()
 
             # Tick extensions lie outside the box: redraw those portions as
             # black vectors without changing the frame's interior appearance.
             outside = QPainterPath()
-            outside.addRect(page)
+            outside.addRect(bounds)
             painter.save()
             painter.setClipPath(outside.subtracted(clip))
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -294,7 +398,7 @@ def export_pdf(
                     painter.drawLine(QPointF(*start), QPointF(*end))
             painter.restore()
         else:
-            painter.drawImage(page, qimage)
+            painter.drawImage(raster_rect, qimage)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         for kind, width_pt in (("box", frame_width_pt), ("grid", grid_width_pt)):
@@ -309,16 +413,8 @@ def export_pdf(
         text_color = QColor("black") if transparent_outside_frame else QColor.fromRgbF(*view.axes.color[:3])
         painter.setPen(text_color)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-        font = QFont("Arial")
-        font.setPointSizeF(font_size)
-        painter.setFont(font)
-        # Measure in PDF device units, matching drawText at the writer's DPI.
-        metrics = QFontMetricsF(font, writer)
-        placements = _layout_pdf_ticks(text_items, metrics, sx, sy)
         for item in placements:
             x, y = item["x"], item["y"]
-            if item["kind"] == "labels" and item.get("axis") != "z":
-                x, y = _clear_axis_label_frame(item, placements, metrics, 1, 1)
             bounds = metrics.tightBoundingRect(item["text"])
             # drawText takes a baseline; center the visible glyphs on the anchor.
             painter.save()
@@ -329,7 +425,7 @@ def export_pdf(
     finally:
         painter.end()
         buffer.close()
-    _write_srgb_pdf(bytes(pdf_data), path)
+    _write_srgb_pdf(bytes(pdf_data), path, (width_cm * 72 / 2.54, height_cm * 72 / 2.54))
     return image.size
 
 
