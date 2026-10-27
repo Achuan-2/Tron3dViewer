@@ -293,12 +293,10 @@ class MainWindow(QMainWindow):
             spin.setSingleStep(5.0)
             spin.setSuffix("°")
             spin.setToolTip(tooltip)
-            spin.setKeyboardTracking(False)
+            spin.setKeyboardTracking(True)
+            spin.valueChanged.connect(self._rotation_changed)
             self.rotation_spins.append(spin)
             rotation_form.addRow(f"{axis} 角度", spin)
-        apply_rotation = QPushButton("应用 XYZ 角度")
-        apply_rotation.clicked.connect(self.apply_rotation)
-        rotation_form.addRow(apply_rotation)
         view_layout.addLayout(rotation_form)
         self.volume_view.view_changed_callback = self._refresh_rotation_controls
         self._refresh_rotation_controls()
@@ -602,13 +600,16 @@ class MainWindow(QMainWindow):
         self.updating_controls = True
         values = (self.volume_view.camera.elevation, self.volume_view.camera.roll, self.volume_view.camera.azimuth)
         for spin, value in zip(self.rotation_spins, values):
-            spin.setValue(value)
+            # Preserve text and cursor position while typing the current angle.
+            if spin.value() != round(value, spin.decimals()):
+                spin.setValue(value)
         self.updating_controls = False
 
-    def apply_rotation(self) -> None:
+    def _rotation_changed(self) -> None:
+        if self.updating_controls:
+            return
         x_angle, y_angle, z_angle = (spin.value() for spin in self.rotation_spins)
         self.volume_view.set_rotation(x_angle, y_angle, z_angle)
-        self._refresh_rotation_controls()
 
     def save_current(self) -> None:
         if self.data is None:
