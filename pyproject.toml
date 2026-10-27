@@ -1,6 +1,6 @@
 [project]
 name = "tron3dviewer"
-version = "0.1.1"
+version = "0.1.2"
 description = "Open-source 3D microscopy volume viewer with PDF export"
 requires-python = ">=3.11"
 dependencies = [
@@ -27,6 +27,9 @@ packages = ["tron3dviewer"]
 
 [tool.uv]
 package = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [dependency-groups]
 dev = [

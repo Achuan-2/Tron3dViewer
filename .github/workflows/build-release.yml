@@ -113,5 +113,5 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" release/* \
               --title "Tron 3D viewer $GITHUB_REF_NAME" \
-              --generate-notes
+              --notes-file "docs/releases/$GITHUB_REF_NAME.md"
           fi
