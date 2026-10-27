@@ -30,13 +30,14 @@ def _text_size(text: str, font_size: float, dpi: float) -> tuple[float, float]:
 
 
 def nice_spacing(size: float) -> float:
+    """Choose a 1/2/5 step that keeps each axis within four intervals."""
     if size <= 0:
         return 1.0
-    # Aim for roughly three intervals per axis to keep automatic ticks sparse.
-    raw = size / 3
+    raw = size / 4
     magnitude = 10 ** math.floor(math.log10(raw))
     normalized = raw / magnitude
-    step = 1 if normalized < 1.5 else 2 if normalized < 3.5 else 5 if normalized < 7.5 else 10
+    # Round up rather than to the nearest step, so rounding cannot add ticks.
+    step = next(value for value in (1, 2, 5, 10) if normalized <= value + 1e-12)
     return step * magnitude
 
 
