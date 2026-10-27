@@ -20,12 +20,10 @@ jobs:
             name: Windows-x86_64
             os: Windows
             spec: packaging/tron3dviewer-windows.spec
-            artifact: tron3dviewer-Windows-x86_64.exe
           - runner: macos-14
             name: macOS-arm64
             os: macOS
             spec: packaging/tron3dviewer-mac.spec
-            artifact: tron3dviewer-macOS-arm64.dmg
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -45,6 +43,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Read project version
+        id: version
+        shell: bash
+        run: echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" >> "$GITHUB_OUTPUT"
+
       - name: Create Windows application icon
         if: matrix.os == 'Windows'
         run: uv run python packaging/make_ico.py
@@ -58,7 +61,7 @@ jobs:
 
       - name: Name Windows executable
         if: matrix.os == 'Windows'
-        run: Copy-Item dist/tron3dviewer.exe "dist/${{ matrix.artifact }}"
+        run: Copy-Item dist/tron3dviewer.exe "dist/tron3dviewer-${{ steps.version.outputs.version }}-Windows-x86_64.exe"
 
       - name: Create DMG
         if: matrix.os == 'macOS'
@@ -68,17 +71,17 @@ jobs:
           ditto dist/tron3dviewer.app build/dmg/tron3dviewer.app
           ln -s /Applications build/dmg/Applications
           hdiutil create \
-            -volname tron3dviewer \
+            -volname "tron3dviewer-${{ steps.version.outputs.version }}" \
             -srcfolder build/dmg \
             -ov \
             -format UDZO \
-            "dist/${{ matrix.artifact }}"
+            "dist/tron3dviewer-${{ steps.version.outputs.version }}-macOS-arm64.dmg"
 
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: tron3dviewer-${{ matrix.name }}
-          path: dist/${{ matrix.artifact }}
+          name: tron3dviewer-${{ steps.version.outputs.version }}-${{ matrix.name }}
+          path: dist/tron3dviewer-${{ steps.version.outputs.version }}-${{ matrix.name }}.*
           if-no-files-found: error
 
   release:
