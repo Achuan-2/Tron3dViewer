@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="README.md"><img src="https://img.shields.io/badge/语言-中文-lightgrey" alt="中文"></a>
-  <a href="README.en.md"><img src="https://img.shields.io/badge/Language-English-blue" alt="English"></a>
+  <a href="README.md">中文</a> |
+  <a href="README.en.md">English</a>
 </p>
 
 <div align="center">

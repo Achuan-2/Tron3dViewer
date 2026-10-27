@@ -20,12 +20,12 @@ jobs:
             name: Windows-x86_64
             os: Windows
             spec: packaging/OpenImaris-windows.spec
-            artifact: OpenImaris-Windows-x86_64.exe
+            artifact: Tron3d-Windows-x86_64.exe
           - runner: macos-14
             name: macOS-arm64
             os: macOS
             spec: packaging/OpenImaris-mac.spec
-            artifact: OpenImaris-macOS-arm64.dmg
+            artifact: Tron3d-macOS-arm64.dmg
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -77,7 +77,7 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: OpenImaris-${{ matrix.name }}
+          name: Tron3d-${{ matrix.name }}
           path: dist/${{ matrix.artifact }}
           if-no-files-found: error
 
@@ -96,12 +96,12 @@ jobs:
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
-          pattern: OpenImaris-*
+          pattern: Tron3d-*
           path: release
           merge-multiple: true
 
       - name: Create checksums
-        run: sha256sum release/OpenImaris-* > release/SHA256SUMS
+        run: sha256sum release/Tron3d-* > release/SHA256SUMS
 
       - name: Publish release
         shell: bash
