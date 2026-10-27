@@ -1,0 +1,63 @@
+name: Build macOS packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Create application icon
+        run: uv run python packaging/make_icns.py
+
+      - name: Build OpenImaris.app
+        run: uv run --with pyinstaller pyinstaller --noconfirm --clean packaging/OpenImaris-mac.spec
+
+      - name: Create DMG
+        run: |
+          rm -rf build/dmg
+          mkdir -p build/dmg
+          ditto dist/OpenImaris.app build/dmg/OpenImaris.app
+          ln -s /Applications build/dmg/Applications
+          hdiutil create \
+            -volname OpenImaris \
+            -srcfolder build/dmg \
+            -ov \
+            -format UDZO \
+            "dist/OpenImaris-macOS-${{ matrix.arch }}.dmg"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenImaris-macOS-${{ matrix.arch }}
+          path: dist/OpenImaris-macOS-${{ matrix.arch }}.dmg
+          if-no-files-found: error
