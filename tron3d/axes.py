@@ -32,7 +32,8 @@ def _text_size(text: str, font_size: float, dpi: float) -> tuple[float, float]:
 def nice_spacing(size: float) -> float:
     if size <= 0:
         return 1.0
-    raw = size / 5
+    # Aim for roughly three intervals per axis to keep automatic ticks sparse.
+    raw = size / 3
     magnitude = 10 ** math.floor(math.log10(raw))
     normalized = raw / magnitude
     step = 1 if normalized < 1.5 else 2 if normalized < 3.5 else 5 if normalized < 7.5 else 10
