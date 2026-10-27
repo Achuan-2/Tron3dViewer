@@ -61,6 +61,35 @@ class VolumeInteractionTest(unittest.TestCase):
         self.assertTrue(self.view.axes.visuals["box"][0].visible)
         self.assertFalse(self.view.axes.visuals["grid"][0].visible)
 
+    def test_grid_uses_far_faces_through_rotation_and_inversion(self):
+        size = np.asarray(self.view.data.physical_size)
+        grid = self.view.axes.visuals["grid"][0]
+        for elevation in (30, -30, 135, -135):
+            for azimuth in (15, 105, 195, 285):
+                for roll in (0, 180):
+                    with self.subTest(elevation=elevation, azimuth=azimuth, roll=roll):
+                        self.view.set_rotation(elevation, roll, azimuth)
+                        self.assertIs(self.view.axes.visuals["grid"][0], grid)
+                        for axis, side in enumerate(self.view.axes.grid_sides):
+                            near, far = size / 2, size / 2
+                            far[axis] = side * size[axis]
+                            near[axis] = (1 - side) * size[axis]
+                            camera = self.view.camera.transform
+                            self.assertLess(camera.imap(far)[2], camera.imap(near)[2])
+                        # Every segment lies on a selected rear face.
+                        planes = np.asarray(self.view.axes.grid_sides) * size
+                        for start, end in np.asarray(grid.pos).reshape(-1, 2, 3):
+                            self.assertTrue(np.any(np.isclose(start, planes) & np.isclose(end, planes)))
+
+    def test_background_grid_does_not_darken_bright_volume_signal(self):
+        self.view.axes.set_visible("grid", False)
+        baseline = np.asarray(self.view.canvas.render())[:, :, 1].astype(int)
+        self.view.axes.set_visible("grid", True)
+        with_grid = np.asarray(self.view.canvas.render())[:, :, 1].astype(int)
+        signal = baseline > 180
+        self.assertTrue(np.any(signal))
+        self.assertGreaterEqual(np.min(with_grid[signal] - baseline[signal]), -1)
+
     def test_reset_view_fits_all_axis_text_for_tall_and_flat_volumes(self):
         self.view.canvas.show()
         for viewport in ((1080, 800), (480, 360), (640, 960)):

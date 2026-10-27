@@ -70,6 +70,7 @@ class AxisScene:
         self.text_items: list[dict] = []
         self.text_visible = True
         self.layout = (0, 0, 0, 0, 0, -1, -1, 0)
+        self.grid_sides = (0, 0, 0)
         self._text_transform = None
         self._screen_text = parent is not None and parent.canvas is not None
         if parent is not None and parent.canvas is not None:
@@ -100,6 +101,7 @@ class AxisScene:
 
     def update_layout(self, transform) -> bool:
         self._text_transform = transform
+        grid_changed = self._update_grid_layout(transform)
         x, y, z = self.size
         center = self._project(transform, (x / 2, y / 2, z / 2))
         plane_centers = [self._project(transform, (x / 2, y / 2, value)) for value in (0, z)]
@@ -138,9 +140,32 @@ class AxisScene:
         layout = (x_side, y_side, zx, zy, z_direction, x_label_sign, y_label_sign, xy_z_side)
         if layout == self.layout and self.visuals:
             self._update_text_layout(transform)
-            return False
+            return grid_changed
         self.layout = layout
         self.rebuild(self.size, self.spacing, layout_only=bool(self.visuals))
+        return True
+
+    def _update_grid_layout(self, transform) -> bool:
+        """Use the farther of each pair of opposite faces for the grid."""
+        size = np.asarray(self.size, dtype=float)
+        sides = list(self.grid_sides)
+        for axis in range(3):
+            depths = []
+            for coordinate in (0, size[axis]):
+                midpoint = size / 2
+                midpoint[axis] = coordinate
+                mapped = np.asarray(transform.map(midpoint), dtype=float).ravel()
+                depths.append(mapped[2] / mapped[3] if mapped.size >= 4 and abs(mapped[3]) > 1e-12 else mapped[2])
+            difference = depths[1] - depths[0]
+            # Keep the previous face in exactly edge-on views to avoid jitter.
+            if abs(difference) > 1e-12:
+                sides[axis] = int(difference > 0)
+        sides = tuple(sides)
+        if sides == self.grid_sides:
+            return False
+        self.grid_sides = sides
+        if self.visuals.get("grid"):
+            self.visuals["grid"][0].set_data(pos=self._grid_positions())
         return True
 
     def rebuild(
@@ -263,7 +288,6 @@ class AxisScene:
 
     def _rebuild_frame(self, size, spacing) -> None:
         x, y, z = size
-        sx, sy, sz = spacing
         corners = np.array(
             [[0, 0, 0], [x, 0, 0], [x, y, 0], [0, y, 0], [0, 0, z], [x, 0, z], [x, y, z], [0, y, z]],
             dtype=np.float32,
@@ -271,15 +295,28 @@ class AxisScene:
         edges = [0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7]
         self.visuals["box"] = [self._line(corners[edges], self.color, 1.2)]
 
-        grid = []
-        for value in _ticks(x, sx)[1:]:
-            grid.extend([[value, 0, 0], [value, y, 0], [value, 0, 0], [value, 0, z]])
-        for value in _ticks(y, sy)[1:]:
-            grid.extend([[0, value, 0], [x, value, 0], [0, value, 0], [0, value, z]])
-        for value in _ticks(z, sz)[1:]:
-            grid.extend([[0, 0, value], [x, 0, value], [0, 0, value], [0, y, value]])
+        grid = self._grid_positions()
         grid_color = (*self.color[:3], 0.22)
-        self.visuals["grid"] = [self._line(np.asarray(grid, dtype=np.float32), grid_color, 0.7)] if grid else []
+        self.visuals["grid"] = [self._line(grid, grid_color, 0.7)] if len(grid) else []
+        if self.visuals["grid"]:
+            # Draw behind the volume rather than blending grey over its signal.
+            self.visuals["grid"][0].order = -10
+
+    def _grid_positions(self) -> np.ndarray:
+        x, y, z = self.size
+        gx, gy, gz = np.asarray(self.grid_sides) * self.size
+
+        def interior_ticks(length, spacing):
+            return (value for value in _ticks(length, spacing) if 0 < value < length)
+
+        grid = []
+        for value in interior_ticks(x, self.spacing[0]):
+            grid.extend([[value, 0, gz], [value, y, gz], [value, gy, 0], [value, gy, z]])
+        for value in interior_ticks(y, self.spacing[1]):
+            grid.extend([[0, value, gz], [x, value, gz], [gx, value, 0], [gx, value, z]])
+        for value in interior_ticks(z, self.spacing[2]):
+            grid.extend([[0, gy, value], [x, gy, value], [gx, 0, value], [gx, y, value]])
+        return np.asarray(grid, dtype=np.float32).reshape(-1, 3)
 
     def _line(self, positions, color, width):
         line = scene.visuals.Line(
