@@ -22,7 +22,8 @@
 - **3D volume rendering**: View IMS and multipage TIFF images using maximum intensity projection (MIP), with multichannel overlays.
 - **Interactive views**: Rotate, pan, and zoom freely. Switch to XY, XZ, or YZ orthogonal views with one click, or set precise rotation angles.
 - **Channel controls**: Independently adjust each channel's color, visibility, contrast, gamma, and opacity, with one-click automatic adjustment.
-- **Spatial calibration**: Read voxel sizes from image metadata, or recalibrate using voxel sizes or overall physical dimensions without modifying the original file.
+- **Spatial calibration**: Read voxel sizes from image metadata, or recalibrate using voxel sizes or overall physical dimensions.
+- **Save and restore IMS**: Keep image data, voxel calibration, view, channel settings, Frame visibility, and tick spacing together and restore them when reopened in OpenImaris.
 - **Customizable axes**: Show or hide the frame, grid, ticks, and labels independently, and customize tick spacing along X, Y, and Z.
 - **High-quality exports**: Export PNG images at 1×, 2×, or 4× resolution, or PDFs with vector ticks and text for publication layouts.
 - **Large-image previews**: Automatically downsample according to data size and adapt rendering quality during interaction to balance responsiveness and still-image quality.
@@ -94,13 +95,19 @@ The interface currently uses Chinese labels; the relevant labels are included be
 
 The View menu also provides a 3D view reset, XY/XZ/YZ orthogonal views, and Z-axis flipping.
 
+### Save IMS
+
+Use **File → Save IMS (文件 → 保存 IMS)** (`Ctrl+S`) to store image data, voxel calibration, camera position, zoom, channel settings, Frame visibility, and tick spacing in one IMS file. TIFF inputs prompt for an IMS destination. Use `Ctrl+Shift+S` to save a separate copy of an IMS file.
+
+Saving preserves the original image resolution, including the existing resolution levels, time points, and objects of an IMS source. OpenImaris restores its saved view and Frame settings when the file is reopened.
+
 ### Export images
 
-- **PNG**: Under **Export Current View (导出当前视角)**, select a 1×, 2×, or 4× scale, then click **Export PNG (导出 PNG)**.
+- **PNG**: Under **Save and Export (保存与导出)**, select a 1×, 2×, or 4× scale, then click **Export PNG (导出 PNG)**.
 - **PDF**: Click **Export PDF (Vector Text) (导出 PDF（矢量文字）)** and set the page width, page height, font size, and rendering scale. The 3D volume is embedded as a raster image, while axis ticks and text remain vector elements.
-- Exports are also available from the File menu; `Ctrl+S` exports a PDF.
+- Exports are also available from the File menu; `Ctrl+Shift+E` exports a PDF.
 
-> Exports use the current view and display settings. Spatial calibration affects only display and export; it does not write changes back to the original image file.
+> Adjustments and image exports do not modify source files. Use Save IMS to write the settings to an IMS file.
 
 ## Supported Inputs
 

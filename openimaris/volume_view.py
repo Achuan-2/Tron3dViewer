@@ -121,12 +121,15 @@ class VolumeView:
             self.box.parent = None
         self.volumes.clear()
         self.channel_colors.clear()
+        self.background = "black"
+        self.canvas.bgcolor = "black"
         self.data = data
-        self.base_ranges = data.display_ranges.copy()
+        ranges = data.view_state.get("normalization_ranges", data.display_ranges) if data.view_state else data.display_ranges
+        self.base_ranges = [tuple(bounds) for bounds in ranges]
 
         sx, sy, sz = data.voxel_size
         for index, channel in enumerate(data.channels):
-            low, high = data.display_ranges[index]
+            low, high = self.base_ranges[index]
             normalized = ((channel.astype(np.float32) - low) / (high - low)).clip(0, 1)
             color = data.colors[index] if data.colors else CHANNEL_COLORS[index % len(CHANNEL_COLORS)]
             volume = scene.visuals.Volume(
@@ -143,8 +146,47 @@ class VolumeView:
             self._apply_volume_style(index)
 
         self.axis_spacing = tuple(nice_spacing(size) for size in data.physical_size)
+        self.axes.visibility = dict.fromkeys(self.axes.visibility, True)
+        self.axes.color = (0.65, 0.68, 0.72, 1.0)
         self.axes.rebuild(data.physical_size, self.axis_spacing)
         self.reset_view()
+        if data.view_state is not None:
+            self.restore_view_state(data.view_state)
+
+    def capture_view_state(self, channels: list[dict], selected_channel: int) -> dict:
+        self.finish_interaction()
+        camera = {key: float(getattr(self.camera, key)) for key in (
+            "elevation", "azimuth", "roll", "fov", "scale_factor", "distance",
+        )}
+        camera["center"] = [float(value) for value in self.camera.center]
+        return {
+            "version": 1,
+            "camera": camera,
+            "axes": {"spacing": list(self.axis_spacing), "visibility": dict(self.axes.visibility)},
+            "background": self.background,
+            "channels": [dict(channel) for channel in channels],
+            "normalization_ranges": [list(bounds) for bounds in self.base_ranges],
+            "selected_channel": selected_channel,
+        }
+
+    def restore_view_state(self, state: dict) -> None:
+        self.set_background(state["background"])
+        self.set_axis_spacing(tuple(state["axes"]["spacing"]))
+        for kind, visible in state["axes"]["visibility"].items():
+            self.set_axis_visible(kind, visible)
+        for index, channel in enumerate(state["channels"]):
+            self.set_visible(index, channel["visible"])
+            self.set_opacity(index, channel["opacity"])
+            self.set_color(index, tuple(channel["color"]))
+            self.set_gamma(index, channel["gamma"])
+            self.set_contrast(index, *channel["range"])
+        camera = state["camera"]
+        self.camera.distance = camera["distance"]
+        self.camera.set_state({key: camera[key] for key in (
+            "elevation", "azimuth", "roll", "fov", "scale_factor", "center",
+        )})
+        self.sync_axes()
+        self.canvas.update()
 
     def _create_box(self, shape: tuple[int, int, int]) -> scene.visuals.Line:
         z, y, x = shape

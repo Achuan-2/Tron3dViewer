@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import tifffile
 
+from .session import read_view_state
+
 
 @dataclass(slots=True)
 class VolumeData:
@@ -19,6 +21,9 @@ class VolumeData:
     downsample_factor: int
     display_ranges: list[tuple[float, float]]
     colors: list[tuple[float, float, float]] | None = None
+    # Native voxels represented by one preview voxel, in XYZ order.
+    voxel_scale: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    view_state: dict | None = None
 
     @property
     def shape(self) -> tuple[int, int, int]:
@@ -145,6 +150,7 @@ def _load_tiff(source: Path, max_voxels: int, max_size: int) -> VolumeData:
         original_axes=original_axes,
         downsample_factor=factor,
         display_ranges=[_display_range(channel) for channel in channels],
+        voxel_scale=(factor, factor, factor),
     )
 
 
@@ -215,13 +221,14 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
                 low = _ims_number(image_info, f"ExtMin{axis}", 0.0) or 0.0
                 high = _ims_number(image_info, f"ExtMax{axis}", float(size))
                 extents.append((high - low) if high is not None and high > low else float(size))
-            unit_scale = {"um": 1.0, "µm": 1.0, "nm": 0.001, "mm": 1000.0, "cm": 10000.0}.get(
+            unit_scale = {"um": 1.0, "µm": 1.0, "nm": 0.001, "mm": 1000.0, "cm": 10000.0, "m": 1e6}.get(
                 _ims_text(image_info.attrs.get("Unit", "um")).lower(), 1.0
             )
             voxel_size = tuple(
                 extent / dimension * full / current * factor * unit_scale
                 for extent, dimension, full, current in zip(extents, dimensions, full_shape[::-1], selected_shape[::-1])
             )
+            voxel_scale = tuple(full / current * factor for full, current in zip(full_shape[::-1], selected_shape[::-1]))
 
             names, colors, ranges = [], [], []
             default_colors = [(0.1, 1.0, 0.1), (1.0, 0.1, 0.1), (0.1, 0.8, 1.0), (1.0, 0.1, 1.0)]
@@ -238,6 +245,7 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
                     ranges.append((low, high) if high > low else _display_range(channel))
                 except (KeyError, TypeError, ValueError):
                     ranges.append(_display_range(channel))
+            view_state = read_view_state(ims, len(channels))
     except OSError as error:
         raise ValueError(f"无法读取 IMS/HDF5 文件：{error}") from error
 
@@ -252,6 +260,8 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
         downsample_factor=factor,
         display_ranges=ranges,
         colors=colors,
+        voxel_scale=voxel_scale,
+        view_state=view_state,
     )
 
 

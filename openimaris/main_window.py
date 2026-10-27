@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSignalBlocker, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from .data import VolumeData, load_volume
 from .exporter import export_pdf, export_png
+from .ims import save_ims
 from .volume_view import CHANNEL_COLORS, VolumeView
 from .widgets import (
     ChannelGradientBar, NoWheelComboBox, NoWheelDoubleSpinBox, NoWheelSlider, PdfExportDialog,
@@ -55,8 +56,19 @@ class MainWindow(QMainWindow):
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_file)
         menu.addAction(open_action)
+        self.save_action = QAction("保存 IMS", self)
+        self.save_action.setShortcut(QKeySequence.StandardKey.Save)
+        self.save_action.setEnabled(False)
+        self.save_action.triggered.connect(self.save_current)
+        menu.addAction(self.save_action)
+        self.save_as_action = QAction("另存为 IMS…", self)
+        self.save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
+        self.save_as_action.setEnabled(False)
+        self.save_as_action.triggered.connect(self.save_as_ims)
+        menu.addAction(self.save_as_action)
+        menu.addSeparator()
         export_pdf_action = QAction("导出矢量文字 PDF…", self)
-        export_pdf_action.setShortcut(QKeySequence.StandardKey.Save)
+        export_pdf_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
         export_pdf_action.triggered.connect(self.export_pdf_current)
         menu.addAction(export_pdf_action)
         export_png_action = QAction("导出 PNG…", self)
@@ -187,8 +199,9 @@ class MainWindow(QMainWindow):
         self.axis_spacing_spins = []
         for axis in "XYZ":
             spin = NoWheelDoubleSpinBox()
-            spin.setRange(1e-6, 1e9)
-            spin.setDecimals(3)
+            spin.setDecimals(0)
+            spin.setRange(1, 1e9)
+            spin.setSingleStep(50)
             spin.setKeyboardTracking(False)
             spin.valueChanged.connect(self._axis_spacing_changed)
             self.axis_spacing_spins.append(spin)
@@ -233,8 +246,12 @@ class MainWindow(QMainWindow):
         self._refresh_rotation_controls()
         layout.addWidget(view_group)
 
-        export_group = QGroupBox("导出当前视角")
+        export_group = QGroupBox("保存与导出")
         export_layout = QVBoxLayout(export_group)
+        self.save_ims_button = QPushButton("保存 IMS（含显示设置）")
+        self.save_ims_button.setEnabled(False)
+        self.save_ims_button.clicked.connect(self.save_current)
+        export_layout.addWidget(self.save_ims_button)
         png_row = QHBoxLayout()
         self.scale_combo = NoWheelComboBox()
         self.scale_combo.addItems(["1×", "2×（高清）", "4×（超清）"])
@@ -308,8 +325,14 @@ class MainWindow(QMainWindow):
         self._refresh_axis_controls()
         self.export_png_button.setEnabled(True)
         self.export_pdf_button.setEnabled(True)
+        self.save_action.setEnabled(True)
+        self.save_as_action.setEnabled(True)
+        self.save_ims_button.setEnabled(True)
+        with QSignalBlocker(self.background_combo):
+            self.background_combo.setCurrentIndex(int(self.volume_view.background == "white"))
         self.setWindowTitle(f"OpenImaris — {data.source.name}")
-        self.statusBar().showMessage("加载完成；左键旋转，右键平移，滚轮缩放", 8000)
+        message = "加载完成，已恢复保存的显示设置" if data.view_state else "加载完成；左键旋转，右键平移，滚轮缩放"
+        self.statusBar().showMessage(message, 8000)
 
     def _update_file_info(self) -> None:
         assert self.data is not None
@@ -338,6 +361,9 @@ class MainWindow(QMainWindow):
         for spin, value in zip(self.axis_spacing_spins, self.volume_view.axis_spacing):
             spin.setValue(value)
         self.updating_controls = False
+        for kind, check in self.axis_checks.items():
+            with QSignalBlocker(check):
+                check.setChecked(self.volume_view.axes.visibility[kind])
 
     def _initialize_channels(self) -> None:
         assert self.data is not None
@@ -356,8 +382,11 @@ class MainWindow(QMainWindow):
             )
             self.channel_list.addItem(name)
         self.original_channel_settings = [dict(settings) for settings in self.channel_settings]
-        self.channel_list.setCurrentRow(0)
-        self._select_channel(0)
+        if self.data.view_state:
+            self.channel_settings = [dict(settings) for settings in self.data.view_state["channels"]]
+        selected = self.data.view_state["selected_channel"] if self.data.view_state else 0
+        self.channel_list.setCurrentRow(selected)
+        self._select_channel(selected)
 
     def _select_channel(self, index: int) -> None:
         if not 0 <= index < len(self.channel_settings):
@@ -512,6 +541,42 @@ class MainWindow(QMainWindow):
         x_angle, y_angle, z_angle = (spin.value() for spin in self.rotation_spins)
         self.volume_view.set_rotation(x_angle, y_angle, z_angle)
         self._refresh_rotation_controls()
+
+    def save_current(self) -> None:
+        if self.data is None:
+            return
+        if self.data.source.suffix.lower() == ".ims":
+            self._save_ims_to(self.data.source)
+        else:
+            self.save_as_ims()
+
+    def save_as_ims(self) -> None:
+        if self.data is None:
+            return
+        default = self.data.source.with_suffix(".ims")
+        path, _ = QFileDialog.getSaveFileName(self, "另存为 IMS", str(default), "Imaris 图像 (*.ims)")
+        if path:
+            self._save_ims_to(Path(path).with_suffix(".ims"))
+
+    def _save_ims_to(self, destination: Path) -> None:
+        assert self.data is not None
+        state = self.volume_view.capture_view_state(self.channel_settings, self.channel_list.currentRow())
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.statusBar().showMessage("正在保存 IMS 图像和显示设置…")
+        QApplication.processEvents()
+        try:
+            save_ims(self.data, destination, state)
+        except Exception as error:
+            QMessageBox.critical(self, "保存失败", str(error))
+            self.statusBar().showMessage("IMS 保存失败")
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.data.source = destination
+        self.data.view_state = state
+        self._update_file_info()
+        self.setWindowTitle(f"OpenImaris — {destination.name}")
+        self.statusBar().showMessage(f"已保存 {destination.name}；再次打开将恢复显示设置", 10000)
 
     def export_png_current(self) -> None:
         if self.data is None:
