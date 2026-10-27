@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import numpy as np
 
-from openimaris.camera import FreeTurntableCamera
+from tron3d.camera import FreeTurntableCamera
 
 
 class FreeTurntableCameraTest(unittest.TestCase):

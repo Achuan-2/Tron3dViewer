@@ -6,7 +6,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('openimaris/assets', 'openimaris/assets'),
+        ('tron3d/assets', 'tron3d/assets'),
+        ('tron3d/i18n', 'tron3d/i18n'),
         ('.venv/Lib/site-packages/vispy/glsl', 'vispy/glsl'),
         ('.venv/Lib/site-packages/vispy/io/_data', 'vispy/io/_data'),
     ],

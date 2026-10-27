@@ -7,9 +7,9 @@ import h5py
 import numpy as np
 import tifffile
 
-from openimaris.data import _ims_number, load_volume
-from openimaris.ims import _attributes, save_ims
-from openimaris.session import VIEW_STATE_PATH
+from tron3d.data import _ims_number, load_volume
+from tron3d.ims import _attributes, save_ims
+from tron3d.session import VIEW_STATE_PATH
 
 
 def display_state(channel_count=2):
@@ -100,7 +100,7 @@ class ImsSavingTest(unittest.TestCase):
     def test_failed_write_does_not_overwrite_existing_file(self):
         output = self.root / "existing.ims"
         output.write_bytes(b"existing destination")
-        with patch("openimaris.ims._write_settings", side_effect=OSError("disk full")):
+        with patch("tron3d.ims._write_settings", side_effect=OSError("disk full")):
             with self.assertRaisesRegex(OSError, "disk full"):
                 save_ims(load_volume(self.source), output, display_state())
         self.assertEqual(output.read_bytes(), b"existing destination")

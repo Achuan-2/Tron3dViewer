@@ -5,8 +5,9 @@ from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QSignalBlocker, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QColor, QKeySequence
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QCheckBox,
     QColorDialog,
@@ -20,13 +21,14 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QScrollArea,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from .data import VolumeData, load_volume
 from .exporter import export_pdf, export_png
+from .i18n import LANGUAGES, current_language, set_language, tr
 from .ims import save_ims
 from .volume_view import CHANNEL_COLORS, VolumeView
 from .widgets import (
@@ -37,7 +39,7 @@ from .widgets import (
 class MainWindow(QMainWindow):
     def __init__(self, initial_path: str | None = None) -> None:
         super().__init__()
-        self.setWindowTitle("OpenImaris — 三维显微图像查看器")
+        self.setWindowTitle("Tron 3D viewer — 三维显微图像查看器")
         self.resize(1440, 900)
         self.data: VolumeData | None = None
         self.channel_settings: list[dict] = []
@@ -46,7 +48,9 @@ class MainWindow(QMainWindow):
         self.volume_view = VolumeView()
         self._create_menu()
         self._create_sidebar()
-        self.statusBar().showMessage("打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放")
+        self._bind_static_text()
+        self.retranslate_ui()
+        self.statusBar().showMessage(tr("打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放"))
         if initial_path:
             QTimer.singleShot(0, lambda: self.open_volume(initial_path))
 
@@ -90,6 +94,60 @@ class MainWindow(QMainWindow):
             action = QAction(label, self)
             action.triggered.connect(callback)
             view_menu.addAction(action)
+
+        language_menu = self.menuBar().addMenu("语言(&L)")
+        language_group = QActionGroup(self)
+        self.language_actions = {}
+        for language, label in LANGUAGES.items():
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setChecked(language == current_language())
+            action.triggered.connect(lambda checked=False, value=language: self.set_language(value))
+            language_group.addAction(action)
+            language_menu.addAction(action)
+            self.language_actions[language] = action
+
+    def _bind_static_text(self) -> None:
+        self._text_bindings = []
+        language_actions = set(self.language_actions.values())
+        for action in self.findChildren(QAction):
+            if action not in language_actions and action.text():
+                self._text_bindings.append((action.setText, action.text()))
+        for widget in self.findChildren(QWidget):
+            if widget is not self.file_label and isinstance(widget, (QAbstractButton, QLabel)) and widget.text():
+                self._text_bindings.append((widget.setText, widget.text()))
+            if isinstance(widget, QGroupBox) and widget.title():
+                self._text_bindings.append((widget.setTitle, widget.title()))
+            if widget.toolTip():
+                self._text_bindings.append((widget.setToolTip, widget.toolTip()))
+        for menu in self.menuBar().findChildren(type(self.menuBar().actions()[0].menu())):
+            self._text_bindings.append((menu.setTitle, menu.title()))
+        self._combo_bindings = [
+            (combo, index, combo.itemText(index))
+            for combo in self.findChildren(NoWheelComboBox)
+            for index in range(combo.count())
+        ]
+        self._tab_keys = [self.tabs.tabText(index) for index in range(self.tabs.count())]
+
+    def retranslate_ui(self) -> None:
+        for setter, text in self._text_bindings:
+            setter(tr(text))
+        for combo, index, text in self._combo_bindings:
+            with QSignalBlocker(combo):
+                combo.setItemText(index, tr(text))
+        for index, text in enumerate(self._tab_keys):
+            self.tabs.setTabText(index, tr(text))
+        self.setWindowTitle(f"Tron 3D viewer — {self.data.source.name}" if self.data else tr("Tron 3D viewer — 三维显微图像查看器"))
+        if self.data is not None:
+            self._update_file_info()
+        else:
+            self.file_label.setText(tr("尚未加载图像"))
+
+    def set_language(self, language: str) -> None:
+        set_language(language)
+        self.language_actions[language].setChecked(True)
+        self.retranslate_ui()
+        self.statusBar().showMessage(tr("打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放"), 5000)
 
     def _create_sidebar(self) -> None:
         panel = QWidget()
@@ -267,21 +325,31 @@ class MainWindow(QMainWindow):
         self.export_pdf_button.clicked.connect(self.export_pdf_current)
         export_layout.addWidget(self.export_pdf_button)
         layout.addWidget(export_group)
-        layout.removeWidget(spatial_group)
-        layout.insertWidget(2, spatial_group)
-        layout.addStretch(1)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFixedWidth(360)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setWidget(panel)
+        self.tabs = QTabWidget()
+        for label, group in [
+            ("空间校准", spatial_group),
+            ("通道", channel_group),
+            ("显示", display_group),
+            ("坐标轴", axis_group),
+            ("视角", view_group),
+            ("导出", export_group),
+        ]:
+            layout.removeWidget(group)
+            tab_page = QWidget()
+            tab_layout = QVBoxLayout(tab_page)
+            tab_layout.setContentsMargins(0, 0, 0, 0)
+            tab_layout.addWidget(group)
+            tab_layout.addStretch(1)
+            self.tabs.addTab(tab_page, label)
+        layout.addWidget(self.tabs, 1)
+        panel.setFixedWidth(360)
+
         central = QWidget()
         central_layout = QHBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
-        central_layout.addWidget(scroll)
+        central_layout.addWidget(panel)
         central_layout.addWidget(self.volume_view.native, 1)
         self.setCentralWidget(central)
 
@@ -296,23 +364,23 @@ class MainWindow(QMainWindow):
     def choose_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "打开三维显微图像",
+            tr("打开三维显微图像"),
             str(self.data.source.parent if self.data else Path.cwd()),
-            "显微图像 (*.ims *.tif *.tiff);;Imaris 图像 (*.ims);;TIFF 图像 (*.tif *.tiff);;所有文件 (*)",
+            tr("显微图像 (*.ims *.tif *.tiff);;Imaris 图像 (*.ims);;TIFF 图像 (*.tif *.tiff);;所有文件 (*)"),
         )
         if path:
             self.open_volume(path)
 
     def open_volume(self, path: str) -> None:
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.statusBar().showMessage("正在读取三维图像…")
+        self.statusBar().showMessage(tr("正在读取三维图像…"))
         QApplication.processEvents()
         try:
             data = load_volume(path)
             self.volume_view.set_volume(data)
         except Exception as error:
-            QMessageBox.critical(self, "无法打开图像", str(error))
-            self.statusBar().showMessage("图像加载失败")
+            QMessageBox.critical(self, tr("无法打开图像"), str(error))
+            self.statusBar().showMessage(tr("图像加载失败"))
             return
         finally:
             QApplication.restoreOverrideCursor()
@@ -330,8 +398,8 @@ class MainWindow(QMainWindow):
         self.save_ims_button.setEnabled(True)
         with QSignalBlocker(self.background_combo):
             self.background_combo.setCurrentIndex(int(self.volume_view.background == "white"))
-        self.setWindowTitle(f"OpenImaris — {data.source.name}")
-        message = "加载完成，已恢复保存的显示设置" if data.view_state else "加载完成；左键旋转，右键平移，滚轮缩放"
+        self.setWindowTitle(f"Tron 3D viewer — {data.source.name}")
+        message = tr("加载完成，已恢复保存的显示设置") if data.view_state else tr("加载完成；左键旋转，右键平移，滚轮缩放")
         self.statusBar().showMessage(message, 8000)
 
     def _update_file_info(self) -> None:
@@ -339,11 +407,11 @@ class MainWindow(QMainWindow):
         z, y, x = self.data.shape
         sx, sy, sz = self.data.voxel_size
         width, height, depth = self.data.physical_size
-        details = f"{self.data.source.name}\n{x} × {y} × {z} px，{len(self.data.channels)} 个通道"
-        details += f"\n体素：{sx:.6g} × {sy:.6g} × {sz:.6g} µm"
-        details += f"\n尺寸：{width:.6g} × {height:.6g} × {depth:.6g} µm"
+        details = tr("{name}\n{x} × {y} × {z} px，{channels} 个通道", name=self.data.source.name, x=x, y=y, z=z, channels=len(self.data.channels))
+        details += tr("\n体素：{x} × {y} × {z} µm", x=f"{sx:.6g}", y=f"{sy:.6g}", z=f"{sz:.6g}")
+        details += tr("\n尺寸：{x} × {y} × {z} µm", x=f"{width:.6g}", y=f"{height:.6g}", z=f"{depth:.6g}")
         if self.data.downsample_factor > 1:
-            details += f"\n预览降采样：{self.data.downsample_factor}×"
+            details += tr("\n预览降采样：{factor}×", factor=self.data.downsample_factor)
         self.file_label.setText(details)
 
     def _refresh_spatial_controls(self) -> None:
@@ -433,7 +501,7 @@ class MainWindow(QMainWindow):
         if index < 0:
             return
         current = QColor.fromRgbF(*self.channel_settings[index]["color"])
-        color = QColorDialog.getColor(current, self, "选择通道颜色")
+        color = QColorDialog.getColor(current, self, tr("选择通道颜色"))
         if color.isValid():
             rgb = color.redF(), color.greenF(), color.blueF()
             self.channel_settings[index]["color"] = rgb
@@ -474,7 +542,7 @@ class MainWindow(QMainWindow):
             self.channel_settings[index]["range"] = (low, high)
             self.volume_view.set_contrast(index, low, high)
         self._select_channel(self.channel_list.currentRow())
-        self.statusBar().showMessage("已按 99.8% 百分位自动调整所有通道", 5000)
+        self.statusBar().showMessage(tr("已按 99.8% 百分位自动调整所有通道"), 5000)
 
     def reset_channels(self) -> None:
         if self.data is None:
@@ -488,7 +556,7 @@ class MainWindow(QMainWindow):
             self.volume_view.set_color(index, settings["color"])
             self.volume_view.set_contrast(index, low, high)
         self._select_channel(self.channel_list.currentRow())
-        self.statusBar().showMessage("已恢复所有通道的原始显示设置", 5000)
+        self.statusBar().showMessage(tr("已恢复所有通道的原始显示设置"), 5000)
 
     def _spatial_mode_changed(self) -> None:
         if self.data is not None and not self.updating_controls:
@@ -499,7 +567,7 @@ class MainWindow(QMainWindow):
             return
         values = tuple(spin.value() for spin in self.spatial_spins)
         if not all(math.isfinite(value) and value > 0 for value in values):
-            QMessageBox.warning(self, "空间校准", "X/Y/Z 尺寸必须是大于 0 的有限数值")
+            QMessageBox.warning(self, tr("空间校准"), tr("X/Y/Z 尺寸必须是大于 0 的有限数值"))
             return
         if self.spatial_mode.currentIndex() == 1:
             z, y, x = self.data.shape
@@ -508,7 +576,7 @@ class MainWindow(QMainWindow):
         self._update_file_info()
         self._refresh_spatial_controls()
         self.reset_axis_spacing()
-        self.statusBar().showMessage("空间尺寸已更新；原始文件未被修改", 5000)
+        self.statusBar().showMessage(tr("空间尺寸已更新；原始文件未被修改"), 5000)
 
     def reset_spatial_calibration(self) -> None:
         if self.data is None:
@@ -554,7 +622,7 @@ class MainWindow(QMainWindow):
         if self.data is None:
             return
         default = self.data.source.with_suffix(".ims")
-        path, _ = QFileDialog.getSaveFileName(self, "另存为 IMS", str(default), "Imaris 图像 (*.ims)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("另存为 IMS"), str(default), tr("Imaris 图像 (*.ims)"))
         if path:
             self._save_ims_to(Path(path).with_suffix(".ims"))
 
@@ -562,27 +630,27 @@ class MainWindow(QMainWindow):
         assert self.data is not None
         state = self.volume_view.capture_view_state(self.channel_settings, self.channel_list.currentRow())
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.statusBar().showMessage("正在保存 IMS 图像和显示设置…")
+        self.statusBar().showMessage(tr("正在保存 IMS 图像和显示设置…"))
         QApplication.processEvents()
         try:
             save_ims(self.data, destination, state)
         except Exception as error:
-            QMessageBox.critical(self, "保存失败", str(error))
-            self.statusBar().showMessage("IMS 保存失败")
+            QMessageBox.critical(self, tr("保存失败"), str(error))
+            self.statusBar().showMessage(tr("IMS 保存失败"))
             return
         finally:
             QApplication.restoreOverrideCursor()
         self.data.source = destination
         self.data.view_state = state
         self._update_file_info()
-        self.setWindowTitle(f"OpenImaris — {destination.name}")
-        self.statusBar().showMessage(f"已保存 {destination.name}；再次打开将恢复显示设置", 10000)
+        self.setWindowTitle(f"Tron 3D viewer — {destination.name}")
+        self.statusBar().showMessage(tr("已保存 {name}；再次打开将恢复显示设置", name=destination.name), 10000)
 
     def export_png_current(self) -> None:
         if self.data is None:
             return
         default_path = self.data.source.with_name(self.data.source.stem + "_3D.png")
-        path, _ = QFileDialog.getSaveFileName(self, "导出 PNG", str(default_path), "PNG 图像 (*.png)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("导出 PNG"), str(default_path), tr("PNG 图像 (*.png)"))
         if not path:
             return
         destination = Path(path).with_suffix(".png")
@@ -599,7 +667,7 @@ class MainWindow(QMainWindow):
         width_cm, height_cm, font_size, scale = dialog.values()
         transparent_outside_frame = dialog.transparent_outside_frame_check.isChecked()
         default_path = self.data.source.with_name(self.data.source.stem + "_3D.pdf")
-        path, _ = QFileDialog.getSaveFileName(self, "导出矢量文字 PDF", str(default_path), "PDF 文档 (*.pdf)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("导出矢量文字 PDF"), str(default_path), tr("PDF 文档 (*.pdf)"))
         if not path:
             return
         destination = Path(path).with_suffix(".pdf")
@@ -613,15 +681,15 @@ class MainWindow(QMainWindow):
 
     def _perform_export(self, destination: Path, exporter) -> None:
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.statusBar().showMessage("正在渲染并导出…")
+        self.statusBar().showMessage(tr("正在渲染并导出…"))
         QApplication.processEvents()
         try:
             size = exporter()
         except Exception as error:
-            QMessageBox.critical(self, "导出失败", str(error))
-            self.statusBar().showMessage("导出失败")
+            QMessageBox.critical(self, tr("导出失败"), str(error))
+            self.statusBar().showMessage(tr("导出失败"))
             return
         finally:
             QApplication.restoreOverrideCursor()
-        self.statusBar().showMessage(f"已导出 {destination.name}（{size[0]} × {size[1]}）", 10000)
-        QMessageBox.information(self, "导出完成", f"已保存：\n{destination}\n\n图像尺寸：{size[0]} × {size[1]}")
+        self.statusBar().showMessage(tr("已导出 {name}（{width} × {height}）", name=destination.name, width=size[0], height=size[1]), 10000)
+        QMessageBox.information(self, tr("导出完成"), tr("已保存：\n{path}\n\n图像尺寸：{width} × {height}", path=destination, width=size[0], height=size[1]))

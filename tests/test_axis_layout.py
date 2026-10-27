@@ -6,9 +6,9 @@ from PySide6.QtGui import QFont, QFontMetricsF, QImage
 from PySide6.QtWidgets import QApplication
 from vispy.visuals.transforms import MatrixTransform
 
-from openimaris.axes import AxisScene, _text_size
-from openimaris.axis_layout import layout_axis_text
-from openimaris.exporter import _layout_pdf_ticks
+from tron3d.axes import AxisScene, _text_size
+from tron3d.axis_layout import layout_axis_text
+from tron3d.exporter import _layout_pdf_ticks
 
 
 class AxisLayoutTest(unittest.TestCase):

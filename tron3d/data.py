@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import tifffile
 
+from .i18n import tr
 from .session import read_view_state
 
 
@@ -83,14 +84,14 @@ def _as_channels(array: np.ndarray, axes: str) -> tuple[list[np.ndarray], str]:
         axes = "ZYX"
     if "T" in axes:
         if axes.count("T") != 1:
-            raise ValueError(f"无法解释时间维度：{original_axes}")
+            raise ValueError(tr("无法解释时间维度：{axes}", axes=original_axes))
         array = np.take(array, 0, axis=axes.index("T"))
         axes = axes.replace("T", "")
 
     if set(axes) - set("CZYX") or len(set(axes)) != len(axes):
-        raise ValueError(f"暂不支持 TIFF 维度 {original_axes}；需要 ZYX、IYX、QYX、CZYX、ZCYX 或 TCZYX")
+        raise ValueError(tr("暂不支持 TIFF 维度 {axes}；需要 ZYX、IYX、QYX、CZYX、ZCYX 或 TCZYX", axes=original_axes))
     if "Y" not in axes or "X" not in axes:
-        raise ValueError("图像缺少 X/Y 空间维度")
+        raise ValueError(tr("图像缺少 X/Y 空间维度"))
     if "Z" not in axes:
         array = array[np.newaxis, ...]
         axes = "Z" + axes
@@ -126,16 +127,16 @@ def _preview_factor(shape: tuple[int, int, int], channel_count: int, max_voxels:
 def _load_tiff(source: Path, max_voxels: int, max_size: int) -> VolumeData:
     with tifffile.TiffFile(source) as tif:
         if not tif.series:
-            raise ValueError("TIFF 中没有可读取的图像")
+            raise ValueError(tr("TIFF 中没有可读取的图像"))
         series = tif.series[0]
         array = series.asarray()
         voxel_size = _voxel_size(tif)
 
     if not np.issubdtype(array.dtype, np.number) or np.iscomplexobj(array):
-        raise ValueError(f"不支持的数据类型：{array.dtype}")
+        raise ValueError(tr("不支持的数据类型：{dtype}", dtype=array.dtype))
     channels, original_axes = _as_channels(array, series.axes)
     if not channels or min(channels[0].shape) < 1:
-        raise ValueError("图像数据为空")
+        raise ValueError(tr("图像数据为空"))
 
     factor = _preview_factor(channels[0].shape, len(channels), max_voxels, max_size)
     if factor > 1:
@@ -144,7 +145,7 @@ def _load_tiff(source: Path, max_voxels: int, max_size: int) -> VolumeData:
 
     return VolumeData(
         channels=channels,
-        channel_names=[f"通道 {index + 1}" for index in range(len(channels))],
+        channel_names=[tr("通道 {index}", index=index + 1) for index in range(len(channels))],
         voxel_size=voxel_size,
         source=source,
         original_axes=original_axes,
@@ -179,9 +180,9 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
                 (int(match.group(1)) for name in dataset if (match := re.fullmatch(r"ResolutionLevel (\d+)", name))),
             )
             if not levels:
-                raise ValueError("IMS 中没有 ResolutionLevel 数据")
+                raise ValueError(tr("IMS 中没有 ResolutionLevel 数据"))
             if "TimePoint 0" not in dataset[f"ResolutionLevel {levels[0]}"]:
-                raise ValueError("IMS 中没有第一时间点数据")
+                raise ValueError(tr("IMS 中没有第一时间点数据"))
 
             selected_level = levels[-1]
             selected_shape = None
@@ -195,13 +196,13 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
                     continue
                 shape = timepoint[f"Channel {channel_indices[0]}/Data"].shape
                 if len(shape) != 3:
-                    raise ValueError(f"IMS 数据维度必须是 ZYX，实际为 {shape}")
+                    raise ValueError(tr("IMS 数据维度必须是 ZYX，实际为 {shape}", shape=shape))
                 selected_level, selected_shape = level, shape
                 factor = _preview_factor(shape, len(channel_indices), max_voxels, max_size)
                 if factor == 1:
                     break
             if selected_shape is None:
-                raise ValueError("IMS 中没有可读取的通道")
+                raise ValueError(tr("IMS 中没有可读取的通道"))
 
             timepoint = dataset[f"ResolutionLevel {selected_level}/TimePoint 0"]
             image_info = ims["DataSetInfo/Image"]
@@ -234,7 +235,7 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
             default_colors = [(0.1, 1.0, 0.1), (1.0, 0.1, 0.1), (0.1, 0.8, 1.0), (1.0, 0.1, 1.0)]
             for index, channel in zip(channel_indices, channels):
                 info = ims[f"DataSetInfo/Channel {index}"]
-                names.append(_ims_text(info.attrs.get("Name", f"通道 {index + 1}")))
+                names.append(_ims_text(info.attrs.get("Name", tr("通道 {index}", index=index + 1))))
                 try:
                     rgb = tuple(float(value) for value in _ims_text(info.attrs["Color"]).split())
                     colors.append(rgb if len(rgb) == 3 else default_colors[index % len(default_colors)])
@@ -247,7 +248,7 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
                     ranges.append(_display_range(channel))
             view_state = read_view_state(ims, len(channels))
     except OSError as error:
-        raise ValueError(f"无法读取 IMS/HDF5 文件：{error}") from error
+        raise ValueError(tr("无法读取 IMS/HDF5 文件：{error}", error=error)) from error
 
     if factor > 1:
         channels = [np.ascontiguousarray(channel[::factor, ::factor, ::factor]) for channel in channels]
@@ -268,10 +269,10 @@ def _load_ims(source: Path, max_voxels: int, max_size: int) -> VolumeData:
 def load_volume(path: str | Path, max_voxels: int = 64_000_000, max_size: int = 1024) -> VolumeData:
     source = Path(path)
     if not source.is_file():
-        raise ValueError(f"文件不存在：{source}")
+        raise ValueError(tr("文件不存在：{path}", path=source))
     suffix = source.suffix.lower()
     if suffix == ".ims":
         return _load_ims(source, max_voxels, max_size)
     if suffix in (".tif", ".tiff"):
         return _load_tiff(source, max_voxels, max_size)
-    raise ValueError("仅支持 .ims、.tif 和 .tiff 文件")
+    raise ValueError(tr("仅支持 .ims、.tif 和 .tiff 文件"))

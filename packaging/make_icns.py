@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[1]
 iconset = root / "build" / "OpenImaris.iconset"
 iconset.mkdir(parents=True, exist_ok=True)
 app = QGuiApplication([])
-icon = QIcon(str(root / "openimaris" / "assets" / "icon.svg"))
+icon = QIcon(str(root / "tron3d" / "assets" / "icon.svg"))
 if icon.isNull():
     raise RuntimeError("无法读取应用图标")
 

@@ -4,9 +4,9 @@
 </p>
 
 <div align="center">
-  <img src="openimaris/assets/icon.svg" alt="OpenImaris Logo" width="128">
+  <img src="tron3d/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
 
-  # OpenImaris
+  # Tron 3D viewer
 
   **轻量级、开源的三维显微图像查看器**
 
@@ -62,20 +62,20 @@ python -m pip install .
 使用 uv：
 
 ```bash
-uv run openimaris
+uv run tron3d
 ```
 
 使用 pip 安装后：
 
 ```bash
-openimaris
+tron3d
 ```
 
 也可以在启动时直接打开图像：
 
 ```bash
-openimaris "path/to/image.ims"
-openimaris "path/to/image.tif"
+tron3d "path/to/image.ims"
+tron3d "path/to/image.tif"
 ```
 
 ### 查看与调整图像
@@ -99,7 +99,7 @@ X/Y/Z 刻度间距以整数显示，微调按钮每次增加或减少 50 µm。
 
 使用 **文件 → 保存 IMS**（`Ctrl+S`）或 **保存与导出 → 保存 IMS（含显示设置）**。打开 TIFF 时会提示另存为 IMS；打开 IMS 时直接保存到当前文件，也可用 `Ctrl+Shift+S` 另存一份。
 
-保存保留原始分辨率数据，不会用降采样预览替代原图；已有 IMS 的分辨率层级、时间点和其他对象会一并保留。体素校准写入 IMS 图像元数据，视角和 Frame 等显示设置由 OpenImaris 在重开时恢复。
+保存保留原始分辨率数据，不会用降采样预览替代原图；已有 IMS 的分辨率层级、时间点和其他对象会一并保留。体素校准写入 IMS 图像元数据，视角和 Frame 等显示设置由 Tron 3D viewer 在重开时恢复。
 
 ### 导出图像
 

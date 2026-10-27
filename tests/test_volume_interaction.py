@@ -6,9 +6,9 @@ from unittest.mock import patch
 import numpy as np
 from PySide6.QtWidgets import QApplication
 
-from openimaris.data import VolumeData
-from openimaris.exporter import render_image
-from openimaris.volume_view import VolumeView
+from tron3d.data import VolumeData
+from tron3d.exporter import render_image
+from tron3d.volume_view import VolumeView
 
 
 class VolumeInteractionTest(unittest.TestCase):
@@ -29,6 +29,13 @@ class VolumeInteractionTest(unittest.TestCase):
 
     def tearDown(self):
         self.view.canvas.close()
+
+    def test_reset_view_uses_45_degree_angles(self):
+        self.view.set_rotation(10, 20, 30)
+        self.view.reset_view()
+        self.assertEqual(self.view.camera.elevation, 45)
+        self.assertEqual(self.view.camera.azimuth, 45)
+        self.assertEqual(self.view.camera.roll, 0)
 
     def test_drag_batches_axis_updates_and_release_restores_each_channel(self):
         event = SimpleNamespace(type="mouse_move", is_dragging=True)

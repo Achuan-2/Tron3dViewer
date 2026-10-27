@@ -27,8 +27,8 @@ class VolumeView:
         self.view = self.canvas.central_widget.add_view()
         self.camera = FreeTurntableCamera(
             fov=0,
-            elevation=28,
-            azimuth=38,
+            elevation=45,
+            azimuth=45,
             distance=1500,
             center=(0, 0, 0),
         )
@@ -245,7 +245,7 @@ class VolumeView:
         self.camera.scale_factor = max(size) * 1.25
         self.camera.distance = max(size) * 2.4
         self.camera.elevation = 45
-        self.camera.azimuth = 38
+        self.camera.azimuth = 45
         self.camera.roll = 0
         self.sync_axes()
         self.canvas.update()

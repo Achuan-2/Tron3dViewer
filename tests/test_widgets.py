@@ -5,13 +5,23 @@ from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from openimaris.widgets import NoWheelSlider, PdfExportDialog
+from tron3d.i18n import set_language
+from tron3d.widgets import NoWheelSlider, PdfExportDialog
 
 
 class WidgetsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
+
+    def test_pdf_dialog_uses_selected_language(self):
+        self.addCleanup(set_language, "zh_CN")
+        set_language("en")
+        dialog = PdfExportDialog(None, 4 / 3)
+        self.addCleanup(dialog.close)
+        self.assertEqual(dialog.windowTitle(), "Export PDF with Vector Text")
+        self.assertEqual(dialog.scale_combo.itemText(1), "2× (High Quality)")
+        self.assertEqual(dialog.transparent_outside_frame_check.text(), "Transparent Outside Frame (Black Text)")
 
     def test_pdf_dialog_defaults_to_transparent_outside_frame(self):
         dialog = PdfExportDialog(None, 4 / 3)

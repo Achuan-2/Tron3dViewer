@@ -12,7 +12,8 @@ a = Analysis(
     pathex=[str(root)],
     binaries=[],
     datas=[
-        (str(root / "openimaris" / "assets"), "openimaris/assets"),
+        (str(root / "tron3d" / "assets"), "tron3d/assets"),
+        (str(root / "tron3d" / "i18n"), "tron3d/i18n"),
         (str(vispy / "glsl"), "vispy/glsl"),
         (str(vispy / "io" / "_data"), "vispy/io/_data"),
     ],

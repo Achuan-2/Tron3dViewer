@@ -4,9 +4,9 @@
 </p>
 
 <div align="center">
-  <img src="openimaris/assets/icon.svg" alt="OpenImaris Logo" width="128">
+  <img src="tron3d/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
 
-  # OpenImaris
+  # Tron 3D viewer
 
   **A lightweight, open-source 3D microscopy image viewer**
 
@@ -23,7 +23,7 @@
 - **Interactive views**: Rotate, pan, and zoom freely. Switch to XY, XZ, or YZ orthogonal views with one click, or set precise rotation angles.
 - **Channel controls**: Independently adjust each channel's color, visibility, contrast, gamma, and opacity, with one-click automatic adjustment.
 - **Spatial calibration**: Read voxel sizes from image metadata, or recalibrate using voxel sizes or overall physical dimensions.
-- **Save and restore IMS**: Keep image data, voxel calibration, view, channel settings, Frame visibility, and tick spacing together and restore them when reopened in OpenImaris.
+- **Save and restore IMS**: Keep image data, voxel calibration, view, channel settings, Frame visibility, and tick spacing together and restore them when reopened in Tron 3D viewer.
 - **Customizable axes**: Show or hide the frame, grid, ticks, and labels independently, and customize tick spacing along X, Y, and Z.
 - **High-quality exports**: Export PNG images at 1×, 2×, or 4× resolution, or PDFs with vector ticks and text for publication layouts.
 - **Large-image previews**: Automatically downsample according to data size and adapt rendering quality during interaction to balance responsiveness and still-image quality.
@@ -62,20 +62,20 @@ python -m pip install .
 With uv:
 
 ```bash
-uv run openimaris
+uv run tron3d
 ```
 
 After installing with pip:
 
 ```bash
-openimaris
+tron3d
 ```
 
 You can also open an image directly at launch:
 
 ```bash
-openimaris "path/to/image.ims"
-openimaris "path/to/image.tif"
+tron3d "path/to/image.ims"
+tron3d "path/to/image.tif"
 ```
 
 ### View and adjust images
@@ -99,7 +99,7 @@ The View menu also provides a 3D view reset, XY/XZ/YZ orthogonal views, and Z-ax
 
 Use **File → Save IMS (文件 → 保存 IMS)** (`Ctrl+S`) to store image data, voxel calibration, camera position, zoom, channel settings, Frame visibility, and tick spacing in one IMS file. TIFF inputs prompt for an IMS destination. Use `Ctrl+Shift+S` to save a separate copy of an IMS file.
 
-Saving preserves the original image resolution, including the existing resolution levels, time points, and objects of an IMS source. OpenImaris restores its saved view and Frame settings when the file is reopened.
+Saving preserves the original image resolution, including the existing resolution levels, time points, and objects of an IMS source. Tron 3D viewer restores its saved view and Frame settings when the file is reopened.
 
 ### Export images
 

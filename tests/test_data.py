@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import tifffile
 
-from openimaris.data import _as_channels, load_volume
+from tron3d.data import _as_channels, load_volume
 
 
 class TiffLoadingTest(unittest.TestCase):

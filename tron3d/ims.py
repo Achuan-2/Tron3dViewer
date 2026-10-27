@@ -13,6 +13,7 @@ from PIL import Image
 import tifffile
 
 from .data import VolumeData, _as_channels, _ims_number, _ims_text
+from .i18n import tr
 from .session import VIEW_STATE_PATH, validate_view_state
 
 
@@ -25,12 +26,12 @@ def _attributes(group, **values) -> None:
 def _write_channel(group, pixels: np.ndarray) -> None:
     supported = {("u", 1), ("u", 2), ("u", 4), ("f", 4)}
     if (pixels.dtype.kind, pixels.dtype.itemsize) not in supported:
-        raise ValueError(f"IMS 不支持 {pixels.dtype}，请先转换为 uint8、uint16、uint32 或 float32")
+        raise ValueError(tr("IMS 不支持 {dtype}，请先转换为 uint8、uint16、uint32 或 float32", dtype=pixels.dtype))
     chunks = tuple(min(size, block) for size, block in zip(pixels.shape, (16, 128, 128)))
     group.create_dataset("Data", data=pixels, chunks=chunks, compression="gzip", compression_opts=3)
     low, high = float(np.nanmin(pixels)), float(np.nanmax(pixels))
     if not np.isfinite((low, high)).all():
-        raise ValueError("图像没有可保存的有限像素值")
+        raise ValueError(tr("图像没有可保存的有限像素值"))
     histogram = np.zeros(256, dtype=np.uint64)
     for start in range(0, pixels.shape[0], chunks[0]):
         counts, _ = np.histogram(pixels[start:start + chunks[0]], bins=256, range=(low, high if high > low else low + 1))
@@ -110,12 +111,12 @@ def save_ims(data: VolumeData, path: str | Path, state: dict) -> None:
     """Save atomically; preserve all resolutions, times and objects of an IMS source."""
     destination = Path(path)
     if destination.suffix.lower() != ".ims":
-        raise ValueError("保存文件的扩展名必须为 .ims")
+        raise ValueError(tr("保存文件的扩展名必须为 .ims"))
     if not data.source.is_file():
-        raise ValueError("原始图像文件不存在，无法保存完整分辨率数据")
+        raise ValueError(tr("原始图像文件不存在，无法保存完整分辨率数据"))
     validate_view_state(state, len(data.channels))
     if not all(np.isfinite(value) and value > 0 for value in (*data.voxel_size, *data.voxel_scale)):
-        raise ValueError("体素大小必须为大于 0 的有限数值")
+        raise ValueError(tr("体素大小必须为大于 0 的有限数值"))
     handle, name = tempfile.mkstemp(prefix=f".{destination.stem}-", suffix=".ims", dir=destination.parent)
     os.close(handle)
     temporary = Path(name)
@@ -126,7 +127,7 @@ def save_ims(data: VolumeData, path: str | Path, state: dict) -> None:
         elif data.source.suffix.lower() in (".tif", ".tiff"):
             mode = "w"
         else:
-            raise ValueError("仅支持将 IMS 或 TIFF 图像保存为 IMS")
+            raise ValueError(tr("仅支持将 IMS 或 TIFF 图像保存为 IMS"))
         with h5py.File(temporary, mode) as ims:
             if mode == "w":
                 _write_tiff_data(ims, data.source)

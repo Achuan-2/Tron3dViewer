@@ -8,7 +8,7 @@ import numpy as np
 from PySide6.QtWidgets import QApplication
 import tifffile
 
-from openimaris.main_window import MainWindow
+from tron3d.main_window import MainWindow
 
 
 class SessionWindowTest(unittest.TestCase):
@@ -22,6 +22,32 @@ class SessionWindowTest(unittest.TestCase):
         self.addCleanup(window.volume_view.canvas.close)
         return window
 
+    def test_language_switches_all_sidebar_text_without_restarting(self):
+        window = self.make_window()
+        self.addCleanup(window.set_language, "zh_CN")
+        window.spatial_spins[0].setValue(12.5)
+        window.language_actions["en"].trigger()
+        self.assertEqual(window.spatial_spins[0].value(), 12.5)
+        self.assertEqual(window.windowTitle(), "Tron 3D viewer — 3D Microscopy Viewer")
+        self.assertEqual(window.file_label.text(), "No image loaded")
+        self.assertEqual(window.save_action.text(), "Save IMS")
+        self.assertEqual(window.background_combo.itemText(0), "Black Background")
+        self.assertEqual(
+            [window.tabs.tabText(index) for index in range(window.tabs.count())],
+            ["Calibration", "Channels", "Display", "Axes", "View", "Export"],
+        )
+        self.assertTrue(window.language_actions["en"].isChecked())
+        window.language_actions["zh_CN"].trigger()
+        self.assertEqual(window.file_label.text(), "尚未加载图像")
+        self.assertEqual(window.tabs.tabText(0), "空间校准")
+
+    def test_sidebar_groups_settings_into_tabs(self):
+        window = self.make_window()
+        labels = [window.tabs.tabText(index) for index in range(window.tabs.count())]
+        self.assertEqual(labels, ["空间校准", "通道", "显示", "坐标轴", "视角", "导出"])
+        self.assertEqual(window.tabs.currentIndex(), 0)
+        self.assertTrue(window.tabs.widget(0).isAncestorOf(window.spatial_mode))
+
     def test_saved_ims_restores_camera_calibration_channels_and_sidebar(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "input.tif"
@@ -29,7 +55,7 @@ class SessionWindowTest(unittest.TestCase):
             pixels = np.arange(2 * 5 * 6 * 7, dtype=np.uint16).reshape(2, 5, 6, 7)
             tifffile.imwrite(source, pixels, photometric="minisblack", metadata={"axes": "CZYX"})
             window = self.make_window()
-            with patch("openimaris.main_window.QMessageBox.critical") as error:
+            with patch("tron3d.main_window.QMessageBox.critical") as error:
                 window.open_volume(str(source))
                 error.assert_not_called()
                 for spin, value in zip(window.spatial_spins, (2.5, 3.5, 4.5)):
@@ -69,7 +95,7 @@ class SessionWindowTest(unittest.TestCase):
                 error.assert_not_called()
             self.assertEqual(window.data.source, output)
             restored = self.make_window()
-            with patch("openimaris.main_window.QMessageBox.critical") as error:
+            with patch("tron3d.main_window.QMessageBox.critical") as error:
                 restored.open_volume(str(output))
                 error.assert_not_called()
             actual = restored.volume_view.capture_view_state(restored.channel_settings, restored.channel_list.currentRow())
@@ -87,10 +113,10 @@ class SessionWindowTest(unittest.TestCase):
             self.assertFalse(restored.volume_view.volumes[1].visible)
             self.assertEqual(restored.volume_view.volumes[1].gamma, 1.35)
             self.assertAlmostEqual(restored.volume_view.volumes[1].opacity, 0.35)
-            with patch("openimaris.main_window.QFileDialog.getSaveFileName") as dialog:
+            with patch("tron3d.main_window.QFileDialog.getSaveFileName") as dialog:
                 restored.save_current()
                 dialog.assert_not_called()
-            with patch("openimaris.main_window.QMessageBox.critical") as error:
+            with patch("tron3d.main_window.QMessageBox.critical") as error:
                 restored.open_volume(str(source))
                 error.assert_not_called()
             self.assertEqual(restored.volume_view.background, "black")

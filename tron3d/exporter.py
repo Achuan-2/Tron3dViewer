@@ -14,14 +14,15 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication
 
 from .axis_layout import layout_axis_text
+from .i18n import tr
 from .volume_view import VolumeView
 
 
 def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Image.Image, list[dict], list]:
     if view.data is None:
-        raise ValueError("请先打开一幅三维图像")
+        raise ValueError(tr("请先打开一幅三维图像"))
     if scale not in (1, 2, 4):
-        raise ValueError("导出倍率必须是 1、2 或 4")
+        raise ValueError(tr("导出倍率必须是 1、2 或 4"))
 
     view.finish_interaction()
     original_size = view.canvas.size
@@ -29,7 +30,7 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
     width, height = original_size
     target = width * scale, height * scale
     if max(target) > 8192:
-        raise ValueError(f"导出尺寸 {target[0]} × {target[1]} 过大，请选择较低倍率")
+        raise ValueError(tr("导出尺寸 {width} × {height} 过大，请选择较低倍率", width=target[0], height=target[1]))
 
     text_items = []
     frame = []
@@ -80,7 +81,7 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
 
     array = np.asarray(pixels)
     if array.ndim != 3 or array.shape[0] < 1 or array.shape[1] < 1:
-        raise RuntimeError("三维画面捕获失败")
+        raise RuntimeError(tr("三维画面捕获失败"))
     return Image.fromarray(array), text_items, frame
 
 
@@ -214,7 +215,7 @@ def export_pdf(
     transparent_outside_frame: bool = True,
 ) -> tuple[int, int]:
     if not all(np.isfinite(value) and value > 0 for value in (width_cm, height_cm, font_size)):
-        raise ValueError("Figure 宽、高和字体大小必须是大于 0 的数值")
+        raise ValueError(tr("Figure 宽、高和字体大小必须是大于 0 的数值"))
     image, text_items, frame = _render_scene(view, scale, include_text=False)
     rgb = image.convert("RGB")
     qimage = QImage(rgb.tobytes(), rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
@@ -224,14 +225,14 @@ def export_pdf(
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     writer = QPdfWriter(buffer)
     writer.setColorModel(QPdfWriter.ColorModel.RGB)
-    writer.setTitle(view.data.source.name if view.data else "OpenImaris rendering")
-    writer.setCreator("OpenImaris")
+    writer.setTitle(view.data.source.name if view.data else "Tron 3D viewer rendering")
+    writer.setCreator("Tron 3D viewer")
     writer.setResolution(1200)
     writer.setPageSize(QPageSize(QSizeF(width_cm * 10, height_cm * 10), QPageSize.Unit.Millimeter))
     writer.setPageMargins(QMarginsF(0, 0, 0, 0))
     painter = QPainter(writer)
     if not painter.isActive():
-        raise RuntimeError("无法创建 PDF 页面")
+        raise RuntimeError(tr("无法创建 PDF 页面"))
     try:
         # JPEG chroma subsampling changes narrow, saturated fluorescence details.
         painter.setRenderHint(QPainter.RenderHint.LosslessImageRendering, True)
@@ -241,7 +242,7 @@ def export_pdf(
         if transparent_outside_frame:
             outline = _frame_outline(frame)
             if len(outline) < 3:
-                raise ValueError("无法确定 Frame 轮廓，请调整视角后重试")
+                raise ValueError(tr("无法确定 Frame 轮廓，请调整视角后重试"))
             clip = QPainterPath(QPointF(outline[0][0] * sx, outline[0][1] * sy))
             for x, y in outline[1:]:
                 clip.lineTo(x * sx, y * sy)
@@ -301,4 +302,4 @@ def export_image(view: VolumeView, path: str | Path, scale: int = 1) -> tuple[in
         return export_png(view, destination, scale)
     if destination.suffix.lower() == ".pdf":
         return export_pdf(view, destination, scale)
-    raise ValueError("导出格式必须是 .pdf 或 .png")
+    raise ValueError(tr("导出格式必须是 .pdf 或 .png"))

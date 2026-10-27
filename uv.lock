@@ -394,45 +394,6 @@ wheels = [
 ]
 
 [[package]]
-name = "openimaris"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "h5py" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pillow" },
-    { name = "pyopengl" },
-    { name = "pypdf" },
-    { name = "pyqtdarktheme-fork" },
-    { name = "pyside6-essentials" },
-    { name = "tifffile", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "tifffile", version = "2026.10.15", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "vispy" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "h5py", specifier = ">=3.12,<4" },
-    { name = "numpy", specifier = ">=1.26,<3" },
-    { name = "pillow", specifier = ">=11,<13" },
-    { name = "pyopengl", specifier = ">=3.1,<4" },
-    { name = "pypdf", specifier = ">=6,<7" },
-    { name = "pyqtdarktheme-fork", specifier = ">=2.3.0,<3" },
-    { name = "pyside6-essentials", specifier = ">=6.8,<7" },
-    { name = "tifffile", specifier = ">=2025.1.10" },
-    { name = "vispy", specifier = ">=0.15,<0.16" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.1.1" }]
-
-[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
@@ -646,6 +607,45 @@ sdist = { url = "https://files.pythonhosted.org/packages/fd/87/a982ca5b892579397
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/bc/9e7664e2d30d4e82ada1b29dbb249d2dcac1ed1114cbbf11764f670d8be7/tifffile-2026.10.15-py3-none-any.whl", hash = "sha256:3dcf6c56731a45c1f85c81e90dad922b0a380a2d639e77f71207e010f8ef0f7b", size = 276988 },
 ]
+
+[[package]]
+name = "tron3d"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "h5py" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pillow" },
+    { name = "pyopengl" },
+    { name = "pypdf" },
+    { name = "pyqtdarktheme-fork" },
+    { name = "pyside6-essentials" },
+    { name = "tifffile", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "tifffile", version = "2026.10.15", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "vispy" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "h5py", specifier = ">=3.12,<4" },
+    { name = "numpy", specifier = ">=1.26,<3" },
+    { name = "pillow", specifier = ">=11,<13" },
+    { name = "pyopengl", specifier = ">=3.1,<4" },
+    { name = "pypdf", specifier = ">=6,<7" },
+    { name = "pyqtdarktheme-fork", specifier = ">=2.3.0,<3" },
+    { name = "pyside6-essentials", specifier = ">=6.8,<7" },
+    { name = "tifffile", specifier = ">=2025.1.10" },
+    { name = "vispy", specifier = ">=0.15,<0.16" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "vispy"

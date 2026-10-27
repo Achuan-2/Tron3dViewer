@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 from pypdf import PdfReader
 from PySide6.QtWidgets import QApplication
 
-from openimaris.exporter import export_pdf
+from tron3d.exporter import export_pdf
 
 
 class PdfColorTest(unittest.TestCase):
@@ -28,7 +28,7 @@ class PdfColorTest(unittest.TestCase):
             for transparent in (False, True):
                 with self.subTest(transparent=transparent):
                     path = Path(directory) / "colors.pdf"
-                    with patch("openimaris.exporter._render_scene", return_value=(background, [], frame)):
+                    with patch("tron3d.exporter._render_scene", return_value=(background, [], frame)):
                         export_pdf(view, path, transparent_outside_frame=transparent)
                     page = PdfReader(path).pages[0]
                     colors = page["/Resources"]["/ColorSpace"]
@@ -69,7 +69,7 @@ class PdfFrameBackgroundTest(unittest.TestCase):
                         with self.subTest(background=background_color, transparent=transparent, text=show_text):
                             background = Image.new("RGBA", (400, 300), background_color)
                             ImageDraw.Draw(background).rectangle((180, 130, 220, 170), fill="lime")
-                            with patch("openimaris.exporter._render_scene",
+                            with patch("tron3d.exporter._render_scene",
                                        return_value=(background, items if show_text else [], frame)):
                                 export_pdf(view, output / "frame.pdf", width_cm=10.16, height_cm=7.62,
                                            transparent_outside_frame=transparent)
@@ -103,7 +103,7 @@ class PdfFrameBackgroundTest(unittest.TestCase):
         frame = [(20, 20), (80, 20), (80, 80), (20, 80)]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "default.pdf"
-            with patch("openimaris.exporter._render_scene", return_value=(background, [], frame)):
+            with patch("tron3d.exporter._render_scene", return_value=(background, [], frame)):
                 export_pdf(view, path, width_cm=2.54, height_cm=2.54)
             subprocess.run([shutil.which("pdftocairo"), "-r", "100", "-singlefile", "-png", "-transp",
                             str(path), str(path.with_suffix(""))], check=True, capture_output=True)
@@ -137,7 +137,7 @@ class PdfTextAlignmentTest(unittest.TestCase):
                                 "kind": "labels", "axis": axis, "frame": frame, "axis_line": (start, end)}
                         background = Image.new("RGBA", (400, 300), "white")
                         ImageDraw.Draw(background).polygon([tuple(point) for point in frame], outline="red", width=2)
-                        with patch("openimaris.exporter._render_scene", return_value=(background, [item], frame)):
+                        with patch("tron3d.exporter._render_scene", return_value=(background, [item], frame)):
                             export_pdf(view, output / "frame.pdf", font_size=14)
                         subprocess.run(
                             [shutil.which("pdftoppm"), "-r", "144", "-singlefile", "-png",
@@ -169,7 +169,7 @@ class PdfTextAlignmentTest(unittest.TestCase):
             for width_cm, height_cm, font_size in [(16, 12, 8), (12, 16, 14)]:
                 with self.subTest(page=(width_cm, height_cm), font_size=font_size):
                     pdf = output / "alignment.pdf"
-                    with patch("openimaris.exporter._render_scene", return_value=(background, items, [])):
+                    with patch("tron3d.exporter._render_scene", return_value=(background, items, [])):
                         export_pdf(view, pdf, width_cm=width_cm, height_cm=height_cm, font_size=font_size,
                                    transparent_outside_frame=False)
                     subprocess.run(

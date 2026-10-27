@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
+from .i18n import tr
+
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -87,7 +89,7 @@ class NoWheelSlider(QSlider):
 class PdfExportDialog(QDialog):
     def __init__(self, parent, aspect_ratio: float) -> None:
         super().__init__(parent)
-        self.setWindowTitle("导出矢量文字 PDF")
+        self.setWindowTitle(tr("导出矢量文字 PDF"))
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.width_spin = NoWheelDoubleSpinBox()
@@ -104,16 +106,16 @@ class PdfExportDialog(QDialog):
         self.font_spin.setValue(8.0)
         self.font_spin.setSuffix(" pt")
         self.scale_combo = NoWheelComboBox()
-        self.scale_combo.addItems(["1×", "2×（高清）", "4×（超清）"])
+        self.scale_combo.addItems(["1×", tr("2×（高清）"), tr("4×（超清）")])
         self.scale_combo.setCurrentIndex(1)
-        form.addRow("Figure 宽度", self.width_spin)
-        form.addRow("Figure 高度", self.height_spin)
-        form.addRow("坐标文字大小", self.font_spin)
-        form.addRow("体渲染清晰度", self.scale_combo)
+        form.addRow(tr("Figure 宽度"), self.width_spin)
+        form.addRow(tr("Figure 高度"), self.height_spin)
+        form.addRow(tr("坐标文字大小"), self.font_spin)
+        form.addRow(tr("体渲染清晰度"), self.scale_combo)
         layout.addLayout(form)
-        self.transparent_outside_frame_check = QCheckBox("Frame 外无背景（黑色文字）")
+        self.transparent_outside_frame_check = QCheckBox(tr("Frame 外无背景（黑色文字）"))
         self.transparent_outside_frame_check.setChecked(True)
-        self.transparent_outside_frame_check.setToolTip("仅保留 Frame 内的当前背景，外侧透明，文字和外侧刻度线为黑色，方便科研组图。")
+        self.transparent_outside_frame_check.setToolTip(tr("仅保留 Frame 内的当前背景，外侧透明，文字和外侧刻度线为黑色，方便科研组图。"))
         layout.addWidget(self.transparent_outside_frame_check)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
