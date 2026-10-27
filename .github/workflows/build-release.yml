@@ -112,6 +112,6 @@ jobs:
             gh release upload "$GITHUB_REF_NAME" release/* --clobber
           else
             gh release create "$GITHUB_REF_NAME" release/* \
-              --title "OpenImaris $GITHUB_REF_NAME" \
+              --title "Tron 3D viewer $GITHUB_REF_NAME" \
               --generate-notes
           fi
