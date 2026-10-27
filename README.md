@@ -29,6 +29,22 @@
 - **大图像预览**：根据数据规模自动降采样，交互时动态调整渲染质量，兼顾流畅度与静止画面质量。
 - **简洁桌面界面**：基于 PySide6 的深色界面，实时显示图像尺寸、通道数、体素大小和物理尺寸。
 
+## 界面与导出效果
+
+以下示例使用 retina 数据，叠加显示 CollagenIV（红色）和 GFAP（绿色）通道。
+
+**软件界面**：在“通道与显示”面板中选择通道并调整显示参数。
+
+![Tron 3D viewer 加载 retina 数据的软件界面](docs/images/retina-ui.png)
+
+**PNG 导出效果**：保留黑色背景、三维边框和坐标轴。
+
+![retina 数据的 PNG 导出效果](docs/images/retina-3d.png)
+
+**PDF 导出效果**：下图由实际导出的 PDF 渲染，Frame 外部透明，在白色页面上预览；原 PDF 中的边框、网格、刻度与文字均为矢量。
+
+![retina 数据的 PDF 导出效果，Frame 外部透明，白色页面预览](docs/images/retina-pdf.png)
+
 ## 环境要求
 
 - Python **3.11 或更高版本**

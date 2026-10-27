@@ -29,6 +29,22 @@
 - **Large-image previews**: Automatically downsample according to data size and adapt rendering quality during interaction to balance responsiveness and still-image quality.
 - **Simple desktop interface**: A dark PySide6 interface displays image dimensions, channel count, voxel sizes, and physical dimensions in real time.
 
+## Interface and Export Examples
+
+These examples use the retina dataset with CollagenIV (red) and GFAP (green) channels overlaid.
+
+**Application interface**: Select channels and adjust their display parameters in the Channels & Display panel.
+
+![Tron 3D viewer interface displaying the retina dataset](docs/images/retina-ui.png)
+
+**PNG export**: The exported image retains the black background, 3D frame, and axes.
+
+![PNG export of the retina dataset](docs/images/retina-3d.png)
+
+**PDF export**: This preview is rendered from an actual PDF export. The area outside the frame is transparent and appears white on the page; the frame, grid, ticks, and text remain vector elements in the original PDF.
+
+![PDF export of the retina dataset, previewed on a white page](docs/images/retina-pdf.png)
+
 ## Requirements
 
 - Python **3.11 or later**
