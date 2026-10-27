@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
+from PySide6.QtCore import QTimer
 from vispy import scene
 from vispy.color import Colormap
 from vispy.visuals.transforms import STTransform
 
 from .axes import AxisScene, nice_spacing
+from .camera import FreeTurntableCamera
 from .data import VolumeData
 
 
@@ -23,7 +25,7 @@ class VolumeView:
     def __init__(self) -> None:
         self.canvas = scene.SceneCanvas(keys="interactive", bgcolor="black", show=False)
         self.view = self.canvas.central_widget.add_view()
-        self.camera = scene.cameras.TurntableCamera(
+        self.camera = FreeTurntableCamera(
             fov=0,
             elevation=28,
             azimuth=38,
@@ -33,21 +35,92 @@ class VolumeView:
         self.view.camera = self.camera
         self.data: VolumeData | None = None
         self.volumes: list[scene.visuals.Volume] = []
+        self.channel_colors: list[tuple[float, float, float]] = []
+        self.background = "black"
         self.box: scene.visuals.Line | None = None
         self.axes = AxisScene(self.view.scene)
         self.axis_spacing: tuple[float, float, float] | None = None
         self.base_ranges: list[tuple[float, float]] = []
+        self.view_changed_callback = None
+        self._interaction_steps: list[tuple[scene.visuals.Volume, float]] = []
+        self._axes_timer = QTimer(self.native)
+        self._axes_timer.setSingleShot(True)
+        self._axes_timer.setInterval(33)
+        self._axes_timer.timeout.connect(self.sync_axes)
+        self._interaction_timer = QTimer(self.native)
+        self._interaction_timer.setSingleShot(True)
+        self._interaction_timer.setInterval(150)
+        self._interaction_timer.timeout.connect(self.finish_interaction)
+        self.canvas.events.mouse_release.connect(self._axes_changed)
+        self.canvas.events.mouse_move.connect(self._axes_changed)
+        self.canvas.events.mouse_wheel.connect(self._axes_changed)
+
+    def _axes_changed(self, event=None) -> None:
+        if event is None or event.type == "mouse_release":
+            self.finish_interaction()
+            return
+        if event.type == "mouse_move" and not event.is_dragging:
+            return
+        if not self._interaction_steps:
+            for volume in self.volumes:
+                self._interaction_steps.append((volume, volume.relative_step_size))
+                volume.relative_step_size = max(1.6, volume.relative_step_size)
+        # Also recover full quality after a pause or a release outside the view.
+        self._interaction_timer.start()
+        if not self._axes_timer.isActive():
+            self._axes_timer.start()
+
+    def finish_interaction(self) -> None:
+        """Restore stationary render quality, including before image export."""
+        self._interaction_timer.stop()
+        self._axes_timer.stop()
+        for volume, step_size in self._interaction_steps:
+            volume.relative_step_size = step_size
+        self._interaction_steps.clear()
+        self.sync_axes()
+        self.canvas.update()
+
+    def sync_axes(self) -> None:
+        self._axes_timer.stop()
+        if self.data is not None:
+            self.axes.update_layout(self.view.scene.transform)
+        if self.view_changed_callback is not None:
+            self.view_changed_callback()
+
+    def set_rotation(self, x_angle: float, y_angle: float, z_angle: float) -> None:
+        self.camera.elevation = x_angle
+        self.camera.roll = y_angle
+        self.camera.azimuth = z_angle
+        self.sync_axes()
+        self.canvas.update()
+
+    def projected_axis_text(self) -> list[dict]:
+        """Project text anchors and tick geometry for vector export."""
+        items = []
+        for item in self.axes.visible_text_items():
+            x, y = self.axes._project(self.view.scene.transform, item["position"])
+            projected = {
+                "text": item["text"], "x": float(x), "y": float(y),
+                "kind": item["kind"], "axis": item["axis"],
+            }
+            if "tick_start" in item:
+                projected["tick_start"] = self.axes._project(self.view.scene.transform, item["tick_start"])
+                projected["tick_end"] = self.axes._project(self.view.scene.transform, item["tick_end"])
+            items.append(projected)
+        return items
 
     @property
     def native(self):
         return self.canvas.native
 
     def set_volume(self, data: VolumeData) -> None:
+        self.finish_interaction()
         for volume in self.volumes:
             volume.parent = None
         if self.box is not None:
             self.box.parent = None
         self.volumes.clear()
+        self.channel_colors.clear()
         self.data = data
         self.base_ranges = data.display_ranges.copy()
 
@@ -64,9 +137,10 @@ class VolumeView:
                 clim=(0, 1),
                 interpolation="linear",
             )
-            volume.set_gl_state("additive", depth_test=False, cull_face=False)
             volume.transform = STTransform(scale=(sx, sy, sz))
             self.volumes.append(volume)
+            self.channel_colors.append(color)
+            self._apply_volume_style(index)
 
         self.axis_spacing = tuple(nice_spacing(size) for size in data.physical_size)
         self.axes.rebuild(data.physical_size, self.axis_spacing)
@@ -131,6 +205,12 @@ class VolumeView:
         self.camera.elevation = 45
         self.camera.azimuth = 38
         self.camera.roll = 0
+        self.sync_axes()
+        self.canvas.update()
+
+    def flip_z(self) -> None:
+        self.camera.roll = (self.camera.roll + 180) % 360
+        self.sync_axes()
         self.canvas.update()
 
     def set_view(self, name: str) -> None:
@@ -146,6 +226,7 @@ class VolumeView:
         elif name == "yz":
             self.camera.elevation = 0
             self.camera.azimuth = 0
+        self.sync_axes()
         self.canvas.update()
 
     def set_visible(self, index: int, visible: bool) -> None:
@@ -153,13 +234,13 @@ class VolumeView:
         self.canvas.update()
 
     def set_opacity(self, index: int, opacity: float) -> None:
-        volume = self.volumes[index]
-        volume.opacity = max(0.001, opacity)
-        volume.set_gl_state("additive", depth_test=False, cull_face=False)
+        self.volumes[index].opacity = max(0.001, opacity)
+        self._apply_volume_style(index)
         self.canvas.update()
 
     def set_color(self, index: int, rgb: tuple[float, float, float]) -> None:
-        self.volumes[index].cmap = Colormap([(0, 0, 0), rgb])
+        self.channel_colors[index] = rgb
+        self._apply_volume_style(index)
         self.canvas.update()
 
     def set_contrast(self, index: int, low: float, high: float) -> None:
@@ -174,8 +255,21 @@ class VolumeView:
         self.volumes[index].gamma = gamma
         self.canvas.update()
 
+    def _apply_volume_style(self, index: int) -> None:
+        color = self.channel_colors[index]
+        if self.background == "white":
+            self.volumes[index].cmap = Colormap([(*color, 0), (*color, 1)])
+            blend_mode = "translucent"
+        else:
+            self.volumes[index].cmap = Colormap([(0, 0, 0), color])
+            blend_mode = "additive"
+        self.volumes[index].set_gl_state(blend_mode, depth_test=False, cull_face=False)
+
     def set_background(self, color: str) -> None:
+        self.background = color
         self.canvas.bgcolor = color
+        for index in range(len(self.volumes)):
+            self._apply_volume_style(index)
         axis_color = (0.65, 0.68, 0.72, 1.0) if color == "black" else (0.12, 0.14, 0.18, 1.0)
         self.axes.set_color(axis_color)
         self.canvas.update()

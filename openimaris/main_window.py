@@ -10,8 +10,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QColorDialog,
-    QComboBox,
-    QDoubleSpinBox,
+    QDialog,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -28,9 +27,9 @@ from PySide6.QtWidgets import (
 )
 
 from .data import VolumeData, load_volume
-from .exporter import export_image
+from .exporter import export_pdf, export_png
 from .volume_view import CHANNEL_COLORS, VolumeView
-from .widgets import ChannelGradientBar
+from .widgets import ChannelGradientBar, NoWheelComboBox, NoWheelDoubleSpinBox, PdfExportDialog
 
 
 class MainWindow(QMainWindow):
@@ -55,10 +54,13 @@ class MainWindow(QMainWindow):
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_file)
         menu.addAction(open_action)
-        export_action = QAction("导出当前视角…", self)
-        export_action.setShortcut(QKeySequence.StandardKey.Save)
-        export_action.triggered.connect(self.export_current)
-        menu.addAction(export_action)
+        export_pdf_action = QAction("导出矢量文字 PDF…", self)
+        export_pdf_action.setShortcut(QKeySequence.StandardKey.Save)
+        export_pdf_action.triggered.connect(self.export_pdf_current)
+        menu.addAction(export_pdf_action)
+        export_png_action = QAction("导出 PNG…", self)
+        export_png_action.triggered.connect(self.export_png_current)
+        menu.addAction(export_png_action)
         menu.addSeparator()
         quit_action = QAction("退出", self)
         quit_action.triggered.connect(self.close)
@@ -70,6 +72,7 @@ class MainWindow(QMainWindow):
             ("XY 顶视图", lambda: self.volume_view.set_view("xy")),
             ("XZ 侧视图", lambda: self.volume_view.set_view("xz")),
             ("YZ 侧视图", lambda: self.volume_view.set_view("yz")),
+            ("Z 翻转 180°", self.volume_view.flip_z),
         ]:
             action = QAction(label, self)
             action.triggered.connect(callback)
@@ -118,7 +121,7 @@ class MainWindow(QMainWindow):
         self.high_spin.valueChanged.connect(self._contrast_changed)
         form.addRow("Min", self.low_spin)
         form.addRow("Max", self.high_spin)
-        self.gamma_spin = QDoubleSpinBox()
+        self.gamma_spin = NoWheelDoubleSpinBox()
         self.gamma_spin.setRange(0.1, 5.0)
         self.gamma_spin.setSingleStep(0.05)
         self.gamma_spin.setValue(1.0)
@@ -129,7 +132,7 @@ class MainWindow(QMainWindow):
         self.opacity_slider.setValue(100)
         self.opacity_slider.valueChanged.connect(self._opacity_changed)
         form.addRow("不透明度", self.opacity_slider)
-        self.background_combo = QComboBox()
+        self.background_combo = NoWheelComboBox()
         self.background_combo.addItems(["黑色背景", "白色背景"])
         self.background_combo.currentIndexChanged.connect(
             lambda index: self.volume_view.set_background("black" if index == 0 else "white")
@@ -145,13 +148,13 @@ class MainWindow(QMainWindow):
 
         spatial_group = QGroupBox("空间校准")
         spatial_form = QFormLayout(spatial_group)
-        self.spatial_mode = QComboBox()
+        self.spatial_mode = NoWheelComboBox()
         self.spatial_mode.addItems(["体素大小 (µm/voxel)", "整体尺寸 (µm)"])
         self.spatial_mode.currentIndexChanged.connect(self._spatial_mode_changed)
         spatial_form.addRow("输入方式", self.spatial_mode)
         self.spatial_spins = []
         for axis in "XYZ":
-            spin = QDoubleSpinBox()
+            spin = NoWheelDoubleSpinBox()
             spin.setRange(1e-6, 1e9)
             spin.setDecimals(6)
             spin.setSingleStep(0.1)
@@ -182,7 +185,7 @@ class MainWindow(QMainWindow):
         spacing_form = QFormLayout()
         self.axis_spacing_spins = []
         for axis in "XYZ":
-            spin = QDoubleSpinBox()
+            spin = NoWheelDoubleSpinBox()
             spin.setRange(1e-6, 1e9)
             spin.setDecimals(3)
             spin.setKeyboardTracking(False)
@@ -195,28 +198,59 @@ class MainWindow(QMainWindow):
         axis_layout.addWidget(reset_spacing)
         layout.addWidget(axis_group)
 
-        view_group = QGroupBox("视角")
-        view_layout = QHBoxLayout(view_group)
+        view_group = QGroupBox("视角与旋转")
+        view_layout = QVBoxLayout(view_group)
+        view_buttons = QHBoxLayout()
         for label, name in [("三维", "iso"), ("XY", "xy"), ("XZ", "xz"), ("YZ", "yz")]:
             button = QPushButton(label)
             if name == "iso":
                 button.clicked.connect(self.volume_view.reset_view)
             else:
                 button.clicked.connect(lambda checked=False, value=name: self.volume_view.set_view(value))
-            view_layout.addWidget(button)
+            view_buttons.addWidget(button)
+        flip_button = QPushButton("Z 翻转")
+        flip_button.clicked.connect(self.volume_view.flip_z)
+        view_buttons.addWidget(flip_button)
+        view_layout.addLayout(view_buttons)
+        rotation_form = QFormLayout()
+        self.rotation_spins = []
+        for axis, tooltip in [("X（俯仰）", "左键上下拖动可连续旋转，越过顶部或底部即可翻转 Z"), ("Y（滚转）", "绕视线滚转，180° 可翻转 Z"), ("Z（方位）", "绕 Z 轴旋转")]:
+            spin = NoWheelDoubleSpinBox()
+            spin.setRange(-360.0, 360.0)
+            spin.setDecimals(1)
+            spin.setSingleStep(5.0)
+            spin.setSuffix("°")
+            spin.setToolTip(tooltip)
+            spin.setKeyboardTracking(False)
+            self.rotation_spins.append(spin)
+            rotation_form.addRow(f"{axis} 角度", spin)
+        apply_rotation = QPushButton("应用 XYZ 角度")
+        apply_rotation.clicked.connect(self.apply_rotation)
+        rotation_form.addRow(apply_rotation)
+        view_layout.addLayout(rotation_form)
+        self.volume_view.view_changed_callback = self._refresh_rotation_controls
+        self._refresh_rotation_controls()
         layout.addWidget(view_group)
 
         export_group = QGroupBox("导出当前视角")
-        export_layout = QHBoxLayout(export_group)
-        self.scale_combo = QComboBox()
+        export_layout = QVBoxLayout(export_group)
+        png_row = QHBoxLayout()
+        self.scale_combo = NoWheelComboBox()
         self.scale_combo.addItems(["1×", "2×（高清）", "4×（超清）"])
         self.scale_combo.setCurrentIndex(1)
-        self.export_button = QPushButton("导出 PDF / PNG")
-        self.export_button.setEnabled(False)
-        self.export_button.clicked.connect(self.export_current)
-        export_layout.addWidget(self.scale_combo)
-        export_layout.addWidget(self.export_button)
+        self.export_png_button = QPushButton("导出 PNG")
+        self.export_png_button.setEnabled(False)
+        self.export_png_button.clicked.connect(self.export_png_current)
+        png_row.addWidget(self.scale_combo)
+        png_row.addWidget(self.export_png_button)
+        export_layout.addLayout(png_row)
+        self.export_pdf_button = QPushButton("导出 PDF（矢量文字）")
+        self.export_pdf_button.setEnabled(False)
+        self.export_pdf_button.clicked.connect(self.export_pdf_current)
+        export_layout.addWidget(self.export_pdf_button)
         layout.addWidget(export_group)
+        layout.removeWidget(spatial_group)
+        layout.insertWidget(2, spatial_group)
         layout.addStretch(1)
 
         scroll = QScrollArea()
@@ -234,8 +268,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     @staticmethod
-    def _range_spinbox() -> QDoubleSpinBox:
-        spin = QDoubleSpinBox()
+    def _range_spinbox() -> NoWheelDoubleSpinBox:
+        spin = NoWheelDoubleSpinBox()
         spin.setRange(-1e12, 1e12)
         spin.setDecimals(2)
         spin.setKeyboardTracking(False)
@@ -271,7 +305,8 @@ class MainWindow(QMainWindow):
         self._update_file_info()
         self._refresh_spatial_controls()
         self._refresh_axis_controls()
-        self.export_button.setEnabled(True)
+        self.export_png_button.setEnabled(True)
+        self.export_pdf_button.setEnabled(True)
         self.setWindowTitle(f"OpenImaris — {data.source.name}")
         self.statusBar().showMessage("加载完成；左键旋转，右键平移，滚轮缩放", 8000)
 
@@ -463,27 +498,59 @@ class MainWindow(QMainWindow):
         self.volume_view.reset_axis_spacing()
         self._refresh_axis_controls()
 
-    def export_current(self) -> None:
+    def _refresh_rotation_controls(self) -> None:
+        if not hasattr(self, "rotation_spins"):
+            return
+        self.updating_controls = True
+        values = (self.volume_view.camera.elevation, self.volume_view.camera.roll, self.volume_view.camera.azimuth)
+        for spin, value in zip(self.rotation_spins, values):
+            spin.setValue(value)
+        self.updating_controls = False
+
+    def apply_rotation(self) -> None:
+        x_angle, y_angle, z_angle = (spin.value() for spin in self.rotation_spins)
+        self.volume_view.set_rotation(x_angle, y_angle, z_angle)
+        self._refresh_rotation_controls()
+
+    def export_png_current(self) -> None:
         if self.data is None:
             return
-        default_path = self.data.source.with_name(self.data.source.stem + "_3D.pdf")
-        path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            "导出当前三维视角",
-            str(default_path),
-            "PDF 文档 (*.pdf);;PNG 图像 (*.png)",
-        )
+        default_path = self.data.source.with_name(self.data.source.stem + "_3D.png")
+        path, _ = QFileDialog.getSaveFileName(self, "导出 PNG", str(default_path), "PNG 图像 (*.png)")
         if not path:
             return
-        destination = Path(path)
-        if not destination.suffix:
-            destination = destination.with_suffix(".png" if "PNG" in selected_filter else ".pdf")
+        destination = Path(path).with_suffix(".png")
         scale = (1, 2, 4)[self.scale_combo.currentIndex()]
+        self._perform_export(destination, lambda: export_png(self.volume_view, destination, scale))
+
+    def export_pdf_current(self) -> None:
+        if self.data is None:
+            return
+        width, height = self.volume_view.canvas.size
+        dialog = PdfExportDialog(self, width / height)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        width_cm, height_cm, font_size, scale = dialog.values()
+        transparent_outside_frame = dialog.transparent_outside_frame_check.isChecked()
+        default_path = self.data.source.with_name(self.data.source.stem + "_3D.pdf")
+        path, _ = QFileDialog.getSaveFileName(self, "导出矢量文字 PDF", str(default_path), "PDF 文档 (*.pdf)")
+        if not path:
+            return
+        destination = Path(path).with_suffix(".pdf")
+        self._perform_export(
+            destination,
+            lambda: export_pdf(
+                self.volume_view, destination, scale, width_cm, height_cm, font_size,
+                transparent_outside_frame=transparent_outside_frame,
+            ),
+        )
+
+    def _perform_export(self, destination: Path, exporter) -> None:
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.statusBar().showMessage("正在渲染并导出…")
         QApplication.processEvents()
         try:
-            size = export_image(self.volume_view, destination, scale)
+            size = exporter()
         except Exception as error:
             QMessageBox.critical(self, "导出失败", str(error))
             self.statusBar().showMessage("导出失败")

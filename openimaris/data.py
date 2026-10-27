@@ -72,6 +72,10 @@ def _voxel_size(tif: tifffile.TiffFile) -> tuple[float, float, float]:
 def _as_channels(array: np.ndarray, axes: str) -> tuple[list[np.ndarray], str]:
     axes = axes.upper()
     original_axes = axes
+    # Plain multipage TIFFs use I (page) or Q (unspecified) for the stack
+    # dimension. Treat a single grayscale stack as Z in this volume viewer.
+    if axes in ("IYX", "QYX"):
+        axes = "ZYX"
     if "T" in axes:
         if axes.count("T") != 1:
             raise ValueError(f"无法解释时间维度：{original_axes}")
@@ -79,7 +83,7 @@ def _as_channels(array: np.ndarray, axes: str) -> tuple[list[np.ndarray], str]:
         axes = axes.replace("T", "")
 
     if set(axes) - set("CZYX") or len(set(axes)) != len(axes):
-        raise ValueError(f"暂不支持 TIFF 维度 {original_axes}；需要 ZYX、CZYX、ZCYX 或 TCZYX")
+        raise ValueError(f"暂不支持 TIFF 维度 {original_axes}；需要 ZYX、IYX、QYX、CZYX、ZCYX 或 TCZYX")
     if "Y" not in axes or "X" not in axes:
         raise ValueError("图像缺少 X/Y 空间维度")
     if "Z" not in axes:
