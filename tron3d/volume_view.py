@@ -23,6 +23,7 @@ CHANNEL_COLORS = [
 # Oblique default view matched to the reference framing.
 DEFAULT_ELEVATION = 30.0
 DEFAULT_AZIMUTH = 60.0
+DEFAULT_ROLL = 180.0
 
 
 class VolumeView:
@@ -33,6 +34,7 @@ class VolumeView:
             fov=0,
             elevation=DEFAULT_ELEVATION,
             azimuth=DEFAULT_AZIMUTH,
+            roll=DEFAULT_ROLL,
             distance=1500,
             center=(0, 0, 0),
         )
@@ -250,9 +252,27 @@ class VolumeView:
         self.camera.distance = max(size) * 2.4
         self.camera.elevation = DEFAULT_ELEVATION
         self.camera.azimuth = DEFAULT_AZIMUTH
-        self.camera.roll = 0
-        self.sync_axes()
+        self.camera.roll = DEFAULT_ROLL
+        self._fit_axis_labels()
         self.canvas.update()
+
+    def _fit_axis_labels(self) -> None:
+        """Fit the projected frame and text inside the current viewport."""
+        half_size = np.asarray(self.view.size, dtype=float) / 2
+        available = half_size - 12 * self.canvas.dpi / 96
+        if np.any(available <= 0):
+            self.sync_axes()
+            return
+        # Text retains its pixel size as the volume shrinks, so recompute the
+        # layout after scaling instead of estimating a fixed world-space margin.
+        for _ in range(6):
+            self.sync_axes()
+            lower, upper = self.axes.projected_bounds(self.view.scene.transform)
+            factor = float(np.max(np.maximum(half_size - lower, upper - half_size) / available))
+            if factor <= 1:
+                return
+            self.camera.scale_factor *= factor * 1.02
+        self.sync_axes()
 
     def flip_z(self) -> None:
         self.camera.roll = (self.camera.roll + 180) % 360
@@ -263,6 +283,8 @@ class VolumeView:
         if self.data is None:
             return
         self.reset_view()
+        if name in ("xy", "xz", "yz"):
+            self.camera.roll = 0
         if name == "xy":
             self.camera.elevation = 90
             self.camera.azimuth = -90
@@ -272,7 +294,7 @@ class VolumeView:
         elif name == "yz":
             self.camera.elevation = 0
             self.camera.azimuth = 0
-        self.sync_axes()
+        self._fit_axis_labels()
         self.canvas.update()
 
     def set_visible(self, index: int, visible: bool) -> None:

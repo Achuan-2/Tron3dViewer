@@ -319,6 +319,23 @@ class AxisScene:
     def visible_text_items(self) -> list[dict]:
         return [item for item in self.text_items if self.visibility[item["kind"]]]
 
+    def projected_bounds(self, transform) -> tuple[np.ndarray, np.ndarray]:
+        """Screen bounds of the volume frame and visible axis annotations."""
+        x, y, z = self.size
+        points = [self._project(transform, (cx, cy, cz))
+                  for cx in (0, x) for cy in (0, y) for cz in (0, z)]
+        canvas = self.parent.canvas if self.parent is not None else None
+        dpi = float(canvas.dpi) if canvas is not None else 96.0
+        for item in self.visible_text_items():
+            center = self._project(transform, item["position"])
+            width, height = _text_size(item["text"], 8, dpi)
+            angle = np.deg2rad(item.get("rotation", 0))
+            cosine, sine = abs(np.cos(angle)), abs(np.sin(angle))
+            half_size = np.array((width * cosine + height * sine,
+                                  width * sine + height * cosine)) / 2
+            points.extend((center - half_size, center + half_size))
+        return np.min(points, axis=0), np.max(points, axis=0)
+
     def set_color(self, color: tuple[float, float, float, float]) -> None:
         self.color = color
         self.rebuild(self.size, self.spacing)

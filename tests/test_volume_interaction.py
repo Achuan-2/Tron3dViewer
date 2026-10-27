@@ -35,7 +35,23 @@ class VolumeInteractionTest(unittest.TestCase):
         self.view.reset_view()
         self.assertEqual(self.view.camera.elevation, 30)
         self.assertEqual(self.view.camera.azimuth, 60)
-        self.assertEqual(self.view.camera.roll, 0)
+        self.assertEqual(self.view.camera.roll, 180)
+
+    def test_default_depth_increases_downward_and_flip_toggles_it(self):
+        def depth_direction():
+            transform = self.view.view.scene.transform
+            near = self.view.axes._project(transform, (0, 0, 0))
+            far = self.view.axes._project(transform, (0, 0, self.view.data.physical_size[2]))
+            return far[1] - near[1]
+
+        self.assertGreater(depth_direction(), 0)
+        self.view.flip_z()
+        self.assertLess(depth_direction(), 0)
+        self.view.reset_view()
+        self.assertGreater(depth_direction(), 0)
+        for preset in ("xy", "xz", "yz"):
+            self.view.set_view(preset)
+            self.assertEqual(self.view.camera.roll, 0)
 
     def test_pdf_capture_separates_vector_lines_and_restores_visibility(self):
         self.view.axes.set_visible("grid", False)
@@ -44,6 +60,20 @@ class VolumeInteractionTest(unittest.TestCase):
         self.assertNotIn("grid", image.info["axis_lines"])
         self.assertTrue(self.view.axes.visuals["box"][0].visible)
         self.assertFalse(self.view.axes.visuals["grid"][0].visible)
+
+    def test_reset_view_fits_all_axis_text_for_tall_and_flat_volumes(self):
+        self.view.canvas.show()
+        for viewport in ((1080, 800), (480, 360), (640, 960)):
+            self.view.canvas.size = viewport
+            self.app.processEvents()
+            for size in ((512, 512, 1210), (47, 36, 13), (2000, 20, 100)):
+                with self.subTest(viewport=viewport, physical_size=size):
+                    self.view.update_spatial_calibration(tuple(
+                        length / pixels for length, pixels in zip(size, self.view.data.shape[::-1])
+                    ))
+                    lower, upper = self.view.axes.projected_bounds(self.view.view.scene.transform)
+                    self.assertTrue(np.all(lower >= 10), lower)
+                    self.assertTrue(np.all(upper <= np.asarray(viewport) - 10), upper)
 
     def test_drag_batches_axis_updates_and_release_restores_each_channel(self):
         event = SimpleNamespace(type="mouse_move", is_dragging=True)
