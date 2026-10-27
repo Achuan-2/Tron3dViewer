@@ -2,7 +2,6 @@ from pathlib import Path
 
 from PySide6.QtGui import QGuiApplication, QIcon
 
-
 root = Path(__file__).resolve().parents[1]
 destination = root / "build" / "tron3dviewer.ico"
 destination.parent.mkdir(parents=True, exist_ok=True)
