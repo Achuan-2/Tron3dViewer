@@ -58,7 +58,7 @@ class PdfColorTest(unittest.TestCase):
                 export_pdf(view, path)
             page = PdfReader(path).pages[0]
             font = next(iter(page["/Resources"]["/Font"].values())).get_object()
-            self.assertEqual(font["/BaseFont"], "/Arial")
+            self.assertEqual(font["/BaseFont"], "/ArialMT")
             self.assertEqual(font["/Subtype"], "/TrueType")
             self.assertEqual(font["/Encoding"], "/WinAnsiEncoding")
             self.assertNotIn("/FontFile2", font["/FontDescriptor"].get_object())

@@ -6,9 +6,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from pypdf import PdfWriter
-from pypdf._cmap import _parse_to_unicode
 from pypdf.generic import (
-    ArrayObject, ByteStringObject, ContentStream, DecodedStreamObject, DictionaryObject, NameObject, NumberObject,
+    ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject,
 )
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QPointF, QRectF, QSizeF
 from PySide6.QtGui import (
@@ -18,6 +17,7 @@ from PySide6.QtWidgets import QApplication
 
 from .axis_layout import layout_axis_text
 from .i18n import tr
+from .pdf_fonts import use_system_arial
 from .volume_view import VolumeView
 
 
@@ -176,70 +176,6 @@ def _frame_outline(points: list) -> list[tuple[float, float]]:
     return half_hull(ordered)[:-1] + half_hull(reversed(ordered))[:-1]
 
 
-def _use_system_arial(page, writer: PdfWriter) -> None:
-    fonts = page["/Resources"].get("/Font", {})
-    if not fonts:
-        return
-    font = next(iter(fonts.values())).get_object()
-    descendant = font["/DescendantFonts"][0].get_object()
-    descriptor_reference = descendant["/FontDescriptor"]
-    descriptor = descriptor_reference.get_object()
-    unicode_map, _ = _parse_to_unicode(font)
-
-    def encode(text) -> ByteStringObject:
-        source = text.original_bytes
-        value = "".join(unicode_map[chr(int.from_bytes(source[index:index + 2], "big"))]
-                        for index in range(0, len(source), 2))
-        return ByteStringObject(value.encode("cp1252"))
-
-    content = ContentStream(page.get_contents(), writer)
-    for operands, operator in content.operations:
-        if operator in (b"Tj", b"'", b'"'):
-            operands[-1] = encode(operands[-1])
-        elif operator == b"TJ":
-            operands[0] = ArrayObject(
-                NumberObject(value) if isinstance(value, (int, float)) else encode(value)
-                for value in operands[0]
-            )
-    page.replace_contents(content)
-
-    cid_widths = {}
-    width_data = descendant.get("/W", [])
-    index = 0
-    while index < len(width_data):
-        first = int(width_data[index])
-        if isinstance(width_data[index + 1], ArrayObject):
-            for offset, width in enumerate(width_data[index + 1]):
-                cid_widths[first + offset] = width
-            index += 2
-        else:
-            last = int(width_data[index + 1])
-            for cid in range(first, last + 1):
-                cid_widths[cid] = width_data[index + 2]
-            index += 3
-    widths = ArrayObject(NumberObject(0) for _ in range(256))
-    for cid, character in unicode_map.items():
-        encoded = character.encode("cp1252")
-        if len(encoded) == 1:
-            widths[encoded[0]] = NumberObject(cid_widths.get(ord(cid), descendant.get("/DW", 1000)))
-
-    for key in ("/FontFile", "/FontFile2", "/FontFile3", "/CIDSet"):
-        descriptor.pop(key, None)
-    descriptor[NameObject("/FontName")] = NameObject("/Arial")
-    descriptor[NameObject("/Flags")] = NumberObject(32)
-    font.clear()
-    font.update({
-        NameObject("/Type"): NameObject("/Font"),
-        NameObject("/Subtype"): NameObject("/TrueType"),
-        NameObject("/BaseFont"): NameObject("/Arial"),
-        NameObject("/Encoding"): NameObject("/WinAnsiEncoding"),
-        NameObject("/FirstChar"): NumberObject(0),
-        NameObject("/LastChar"): NumberObject(255),
-        NameObject("/Widths"): widths,
-        NameObject("/FontDescriptor"): descriptor_reference,
-    })
-
-
 def _write_srgb_pdf(data: bytes, path: str | Path) -> None:
     """Tag Qt's device RGB image and vectors with the same sRGB profile.
 
@@ -252,7 +188,7 @@ def _write_srgb_pdf(data: bytes, path: str | Path) -> None:
     profile.update({NameObject("/N"): NumberObject(3), NameObject("/Alternate"): NameObject("/DeviceRGB")})
     srgb = ArrayObject([NameObject("/ICCBased"), writer._add_object(profile.flate_encode())])
     for page in writer.pages:
-        _use_system_arial(page, writer)
+        use_system_arial(page, writer)
         resources = page["/Resources"]
         colors = resources["/ColorSpace"]
         colors[NameObject("/DefaultRGB")] = srgb
