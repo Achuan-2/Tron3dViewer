@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QSlider,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -29,7 +28,9 @@ from PySide6.QtWidgets import (
 from .data import VolumeData, load_volume
 from .exporter import export_pdf, export_png
 from .volume_view import CHANNEL_COLORS, VolumeView
-from .widgets import ChannelGradientBar, NoWheelComboBox, NoWheelDoubleSpinBox, PdfExportDialog
+from .widgets import (
+    ChannelGradientBar, NoWheelComboBox, NoWheelDoubleSpinBox, NoWheelSlider, PdfExportDialog,
+)
 
 
 class MainWindow(QMainWindow):
@@ -127,7 +128,7 @@ class MainWindow(QMainWindow):
         self.gamma_spin.setValue(1.0)
         self.gamma_spin.valueChanged.connect(self._gamma_changed)
         form.addRow("Gamma", self.gamma_spin)
-        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.opacity_slider = NoWheelSlider(Qt.Orientation.Horizontal)
         self.opacity_slider.setRange(1, 100)
         self.opacity_slider.setValue(100)
         self.opacity_slider.valueChanged.connect(self._opacity_changed)

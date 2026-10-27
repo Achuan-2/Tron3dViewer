@@ -12,6 +12,7 @@ dependencies = [
     "pyqtdarktheme-fork>=2.3.0,<3",
     "tifffile>=2025.1.10",
     "vispy>=0.15,<0.16",
+    "pypdf>=6,<7",
 ]
 
 [project.scripts]

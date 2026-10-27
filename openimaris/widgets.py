@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -78,6 +79,11 @@ class NoWheelComboBox(QComboBox):
         event.ignore()
 
 
+class NoWheelSlider(QSlider):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class PdfExportDialog(QDialog):
     def __init__(self, parent, aspect_ratio: float) -> None:
         super().__init__(parent)
@@ -106,6 +112,7 @@ class PdfExportDialog(QDialog):
         form.addRow("体渲染清晰度", self.scale_combo)
         layout.addLayout(form)
         self.transparent_outside_frame_check = QCheckBox("Frame 外无背景（黑色文字）")
+        self.transparent_outside_frame_check.setChecked(True)
         self.transparent_outside_frame_check.setToolTip("仅保留 Frame 内的当前背景，外侧透明，文字和外侧刻度线为黑色，方便科研组图。")
         layout.addWidget(self.transparent_outside_frame_check)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)

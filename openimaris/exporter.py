@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPageSize, QPainter, QPainterPath, QPdfWriter, QPen
+from pypdf import PdfWriter
+from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QPointF, QRectF, QSizeF
+from PySide6.QtGui import (
+    QColor, QColorSpace, QFont, QFontMetricsF, QImage, QPageSize, QPainter, QPainterPath, QPdfWriter, QPen,
+)
 from PySide6.QtWidgets import QApplication
 
 from .axis_layout import layout_axis_text
@@ -167,6 +172,38 @@ def _frame_outline(points: list) -> list[tuple[float, float]]:
     return half_hull(ordered)[:-1] + half_hull(reversed(ordered))[:-1]
 
 
+def _write_srgb_pdf(data: bytes, path: str | Path) -> None:
+    """Tag Qt's device RGB image and vectors with the same sRGB profile.
+
+    Qt ignores QImage profiles in ordinary PDF output. Explicit ICCBased
+    colors prevent a viewer's working RGB/CMYK profile from defining them.
+    """
+    writer = PdfWriter(clone_from=BytesIO(data))
+    profile = DecodedStreamObject()
+    profile.set_data(bytes(QColorSpace(QColorSpace.NamedColorSpace.SRgb).iccProfile()))
+    profile.update({NameObject("/N"): NumberObject(3), NameObject("/Alternate"): NameObject("/DeviceRGB")})
+    srgb = ArrayObject([NameObject("/ICCBased"), writer._add_object(profile.flate_encode())])
+    for page in writer.pages:
+        resources = page["/Resources"]
+        colors = resources["/ColorSpace"]
+        colors[NameObject("/DefaultRGB")] = srgb
+        colors[NameObject("/CSp")] = srgb
+        colors[NameObject("/PCSp")] = ArrayObject([NameObject("/Pattern"), srgb])
+        # Keep resources RGB-only alongside the forced RGB paint engine;
+        # Qt declares unused CMYK entries even in this mode.
+        for name in ("/CSpcmyk", "/PCSpcmyk"):
+            colors.pop(name, None)
+        for reference in resources.get("/XObject", {}).values():
+            image = reference.get_object()
+            if image.get("/Subtype") == "/Image" and image.get("/ColorSpace") == "/DeviceRGB":
+                image[NameObject("/ColorSpace")] = srgb
+        page[NameObject("/Group")] = DictionaryObject({
+            NameObject("/S"): NameObject("/Transparency"), NameObject("/CS"): srgb,
+        })
+    writer.compress_identical_objects()
+    writer.write(str(path))
+
+
 def export_pdf(
     view: VolumeView,
     path: str | Path,
@@ -174,7 +211,7 @@ def export_pdf(
     width_cm: float = 16.0,
     height_cm: float = 12.0,
     font_size: float = 8.0,
-    transparent_outside_frame: bool = False,
+    transparent_outside_frame: bool = True,
 ) -> tuple[int, int]:
     if not all(np.isfinite(value) and value > 0 for value in (width_cm, height_cm, font_size)):
         raise ValueError("Figure 宽、高和字体大小必须是大于 0 的数值")
@@ -182,7 +219,11 @@ def export_pdf(
     rgb = image.convert("RGB")
     qimage = QImage(rgb.tobytes(), rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
 
-    writer = QPdfWriter(str(Path(path)))
+    pdf_data = QByteArray()
+    buffer = QBuffer(pdf_data)
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    writer = QPdfWriter(buffer)
+    writer.setColorModel(QPdfWriter.ColorModel.RGB)
     writer.setTitle(view.data.source.name if view.data else "OpenImaris rendering")
     writer.setCreator("OpenImaris")
     writer.setResolution(1200)
@@ -192,6 +233,8 @@ def export_pdf(
     if not painter.isActive():
         raise RuntimeError("无法创建 PDF 页面")
     try:
+        # JPEG chroma subsampling changes narrow, saturated fluorescence details.
+        painter.setRenderHint(QPainter.RenderHint.LosslessImageRendering, True)
         page = QRectF(0, 0, writer.width(), writer.height())
         sx = writer.width() / image.width
         sy = writer.height() / image.height
@@ -247,6 +290,8 @@ def export_pdf(
             painter.restore()
     finally:
         painter.end()
+        buffer.close()
+    _write_srgb_pdf(bytes(pdf_data), path)
     return image.size
 
 

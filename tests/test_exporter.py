@@ -8,9 +8,44 @@ from unittest.mock import patch
 
 import numpy as np
 from PIL import Image, ImageDraw
+from pypdf import PdfReader
 from PySide6.QtWidgets import QApplication
 
 from openimaris.exporter import export_pdf
+
+
+class PdfColorTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_rgb_pixels_are_lossless_and_color_managed(self):
+        pixels = np.random.default_rng(42).integers(0, 256, (64, 96, 3), dtype=np.uint8)
+        background = Image.fromarray(pixels)
+        frame = [(4, 4), (92, 4), (92, 60), (4, 60)]
+        view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0.65, 0.68, 0.72, 1)))
+        with tempfile.TemporaryDirectory() as directory:
+            for transparent in (False, True):
+                with self.subTest(transparent=transparent):
+                    path = Path(directory) / "colors.pdf"
+                    with patch("openimaris.exporter._render_scene", return_value=(background, [], frame)):
+                        export_pdf(view, path, transparent_outside_frame=transparent)
+                    page = PdfReader(path).pages[0]
+                    colors = page["/Resources"]["/ColorSpace"]
+                    self.assertNotIn("/CSpcmyk", colors)
+                    self.assertNotIn("/PCSpcmyk", colors)
+                    srgb = colors["/DefaultRGB"]
+                    self.assertEqual(srgb[0], "/ICCBased")
+                    profile = srgb[1].get_object()
+                    self.assertEqual(profile["/N"], 3)
+                    self.assertEqual(profile.get_data()[16:20], b"RGB ")
+                    self.assertEqual(page["/Group"]["/CS"], srgb)
+                    images = list(page["/Resources"]["/XObject"].values())
+                    self.assertEqual(len(images), 1)
+                    embedded = images[0].get_object()
+                    self.assertEqual(embedded["/ColorSpace"], srgb)
+                    self.assertNotIn("/DCTDecode", str(embedded["/Filter"]))
+                    np.testing.assert_array_equal(np.asarray(page.images[0].image.convert("RGB")), pixels)
 
 
 @unittest.skipUnless(shutil.which("pdftocairo"), "Poppler is needed to inspect PDF transparency")
@@ -48,7 +83,7 @@ class PdfFrameBackgroundTest(unittest.TestCase):
                             self.assertEqual(pixels[10, 10, 3], 0 if transparent else 255)
                             expected = (0, 0, 0, 255) if background_color == "black" else (255, 255, 255, 255)
                             np.testing.assert_array_equal(pixels[110, 150], expected)
-                            # Qt's embedded RGB image can be JPEG-compressed.
+                            # Allow rounding in the PDF renderer's sRGB conversion.
                             np.testing.assert_allclose(pixels[150, 200], (0, 255, 0, 255), atol=2)
                             if transparent:
                                 # Outside the slanted edge but inside its bounding rectangle.
@@ -61,6 +96,21 @@ class PdfFrameBackgroundTest(unittest.TestCase):
                                     tick = pixels[148:153, 86:98]
                                     self.assertTrue(np.any(tick[..., 3] > 200))
                                     self.assertTrue(np.all(tick[tick[..., 3] > 200, :3] == 0))
+
+    def test_default_export_keeps_the_outside_transparent(self):
+        view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0.65, 0.68, 0.72, 1)))
+        background = Image.new("RGB", (100, 100), "black")
+        frame = [(20, 20), (80, 20), (80, 80), (20, 80)]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "default.pdf"
+            with patch("openimaris.exporter._render_scene", return_value=(background, [], frame)):
+                export_pdf(view, path, width_cm=2.54, height_cm=2.54)
+            subprocess.run([shutil.which("pdftocairo"), "-r", "100", "-singlefile", "-png", "-transp",
+                            str(path), str(path.with_suffix(""))], check=True, capture_output=True)
+            with Image.open(path.with_suffix(".png")) as rendered:
+                pixels = np.asarray(rendered.convert("RGBA"))
+            self.assertEqual(pixels[10, 10, 3], 0)
+            np.testing.assert_array_equal(pixels[50, 50], (0, 0, 0, 255))
 
 
 @unittest.skipUnless(shutil.which("pdftoppm"), "Poppler is needed to inspect rendered PDF text")
@@ -120,7 +170,8 @@ class PdfTextAlignmentTest(unittest.TestCase):
                 with self.subTest(page=(width_cm, height_cm), font_size=font_size):
                     pdf = output / "alignment.pdf"
                     with patch("openimaris.exporter._render_scene", return_value=(background, items, [])):
-                        export_pdf(view, pdf, width_cm=width_cm, height_cm=height_cm, font_size=font_size)
+                        export_pdf(view, pdf, width_cm=width_cm, height_cm=height_cm, font_size=font_size,
+                                   transparent_outside_frame=False)
                     subprocess.run(
                         [shutil.which("pdftoppm"), "-r", "144", "-singlefile", "-png", str(pdf), str(output / "page")],
                         check=True, capture_output=True,
