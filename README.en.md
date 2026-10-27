@@ -83,7 +83,7 @@ tron3d "path/to/image.tif"
 The interface currently uses Chinese labels; the relevant labels are included below for reference.
 
 1. Drag an IMS / TIFF file into the window, click **Open 3D IMS / TIFF (打开三维 IMS / TIFF)**, or press `Ctrl+O` to select an image.
-2. Select a channel in the **Channels (通道)** panel on the left and adjust its color, Min/Max, gamma, and opacity.
+2. Select a channel in the **Channels & Display (通道与显示)** panel on the left and adjust its color, Min/Max, gamma, and opacity.
 3. Use the **Spatial Calibration (空间校准)** and **Frame · Axes (Frame · 坐标轴)** panels to set physical dimensions, axis elements, and tick spacing.
 4. Adjust the composition with the mouse or the **View and Rotation (视角与旋转)** panel.
 

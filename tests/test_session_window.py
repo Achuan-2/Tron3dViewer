@@ -46,7 +46,7 @@ class SessionWindowTest(unittest.TestCase):
         self.assertEqual(window.background_combo.itemText(0), "Black Background")
         self.assertEqual(
             [window.tabs.tabText(index) for index in range(window.tabs.count())],
-            ["Calibration", "Channels", "Display", "Axes", "View", "Export"],
+            ["Calibration", "Channels & Display", "Axes", "View", "Export"],
         )
         self.assertTrue(window.language_actions["en"].isChecked())
         window.language_actions["zh_CN"].trigger()
@@ -56,9 +56,11 @@ class SessionWindowTest(unittest.TestCase):
     def test_sidebar_groups_settings_into_tabs(self):
         window = self.make_window()
         labels = [window.tabs.tabText(index) for index in range(window.tabs.count())]
-        self.assertEqual(labels, ["空间校准", "通道", "显示", "坐标轴", "视角", "导出"])
+        self.assertEqual(labels, ["空间校准", "通道与显示", "坐标轴", "视角", "导出"])
         self.assertEqual(window.tabs.currentIndex(), 0)
         self.assertTrue(window.tabs.widget(0).isAncestorOf(window.spatial_mode))
+        for control in (window.channel_list, window.low_spin, window.gamma_spin, window.opacity_slider):
+            self.assertTrue(window.tabs.widget(1).isAncestorOf(control))
 
     def test_saved_ims_restores_camera_calibration_channels_and_sidebar(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -335,19 +335,19 @@ class MainWindow(QMainWindow):
         layout.addWidget(export_group)
 
         self.tabs = QTabWidget()
-        for label, group in [
-            ("空间校准", spatial_group),
-            ("通道", channel_group),
-            ("显示", display_group),
-            ("坐标轴", axis_group),
-            ("视角", view_group),
-            ("导出", export_group),
+        for label, groups in [
+            ("空间校准", (spatial_group,)),
+            ("通道与显示", (channel_group, display_group)),
+            ("坐标轴", (axis_group,)),
+            ("视角", (view_group,)),
+            ("导出", (export_group,)),
         ]:
-            layout.removeWidget(group)
             tab_page = QWidget()
             tab_layout = QVBoxLayout(tab_page)
             tab_layout.setContentsMargins(0, 0, 0, 0)
-            tab_layout.addWidget(group)
+            for group in groups:
+                layout.removeWidget(group)
+                tab_layout.addWidget(group)
             tab_layout.addStretch(1)
             self.tabs.addTab(tab_page, label)
         layout.addWidget(self.tabs, 1)
