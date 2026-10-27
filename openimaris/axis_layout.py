@@ -12,7 +12,7 @@ def layout_axis_text(items, measure, gap):
     placed = [dict(item) for item in items]
 
     def extent(item, direction):
-        angle = np.deg2rad(-item.get("rotation", 0))
+        angle = np.deg2rad(item.get("rotation", 0))
         along = np.array((np.cos(angle), np.sin(angle)))
         across = np.array((-along[1], along[0]))
         return float(np.abs((direction @ along, direction @ across)) @ np.asarray(measure(item))) / 2
@@ -38,9 +38,14 @@ def layout_axis_text(items, measure, gap):
         if title is None:
             continue
         if axis == "z":
-            # Follow the Z axis while keeping the text readable after inversion.
-            angle = (np.rad2deg(np.arctan2(tangent[1], tangent[0])) + 90) % 180 - 90
-            title["rotation"] = -float(angle)
+            # Read from the lower end upward: Z below, the unit above, even
+            # when the camera reverses the direction of increasing Z.
+            angle = float(np.rad2deg(np.arctan2(tangent[1], tangent[0])))
+            if angle > 0:
+                angle -= 180
+            elif angle <= -180:
+                angle += 180
+            title["rotation"] = float(angle)
         boundary = max(float(point @ normal) for point in title.get("frame", (start, end)))
         boundary = max(boundary, *(float(item["position"] @ normal) + extent(item, normal) for item in ticks))
         center = (start + end) / 2

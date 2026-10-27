@@ -38,11 +38,12 @@ class AxisLayoutTest(unittest.TestCase):
             tangent = (last - first) / np.linalg.norm(last - first)
             center = axes._project(transform, title["position"])
             self.assertAlmostEqual(float((center - (first + last) / 2) @ tangent), 0, places=5)
-            self.assertAlmostEqual(abs(title["rotation"]), 90)
+            self.assertAlmostEqual(title["rotation"], -90)
 
     def test_rotating_axes_reuses_visuals_and_glyphs(self):
         axes = AxisScene(None)
         axes.rebuild((40, 30, 12), (10, 5, 2))
+        self.assertEqual(axes.visuals["labels"][0].font_size, axes.visuals["ticks"][1].font_size)
         original = {kind: list(visuals) for kind, visuals in axes.visuals.items()}
         axes.set_visible("grid", False)
         axes.set_text_visible(False)
@@ -107,7 +108,7 @@ class AxisLayoutTest(unittest.TestCase):
                             return _text_size(item["text"], 8, dpi)
 
                         def extent(item, direction):
-                            angle = np.deg2rad(-item.get("rotation", 0))
+                            angle = np.deg2rad(item.get("rotation", 0))
                             along = np.array((np.cos(angle), np.sin(angle)))
                             across = np.array((-along[1], along[0]))
                             return np.abs((direction @ along, direction @ across)) @ measure(item) / 2
@@ -128,6 +129,8 @@ class AxisLayoutTest(unittest.TestCase):
                             self.assertGreaterEqual(title["position"] @ direction - extent(title, direction),
                                                     boundary + 3 * dpi / 96 - 1e-6)
                             self.assertAlmostEqual(float((title["position"] - (start + end) / 2) @ tangent), 0, places=6)
+                            if axis == "z":
+                                self.assertLessEqual(np.sin(np.deg2rad(title["rotation"])), 1e-9)
 
     def test_zoom_repositions_text_even_without_changing_edges(self):
         axes = AxisScene(None)
@@ -171,10 +174,13 @@ class AxisLayoutTest(unittest.TestCase):
                             items.append({"axis": axis, "kind": "ticks", "text": text,
                                           "x": end[0], "y": end[1], "tick_start": start, "tick_end": end,
                                           "axis_line": (np.zeros(2), tangent * 400)})
+                        items.append({"axis": axis, "kind": "labels", "text": f"{axis.upper()} [µm]",
+                                      "x": tangent[0] * 200, "y": tangent[1] * 200,
+                                      "axis_line": (np.zeros(2), tangent * 400)})
                     result = _layout_pdf_ticks(items, metrics, sx, sy)
                     gaps = []
                     for axis in "xyz":
-                        ticks = [item for item in result if item["axis"] == axis]
+                        ticks = [item for item in result if item["axis"] == axis and item["kind"] == "ticks"]
                         a, b = ticks[0]["axis_line"]
                         tangent = (b - a) / np.linalg.norm(b - a)
                         normal = np.array((-tangent[1], tangent[0]))
@@ -189,6 +195,11 @@ class AxisLayoutTest(unittest.TestCase):
                             clearances.append(offset - extent)
                         self.assertAlmostEqual(max(offsets), min(offsets), places=6)
                         gaps.append(min(clearances))
+                        title = next(item for item in result if item["axis"] == axis and item["kind"] == "labels")
+                        title_center = np.array((title["x"], title["y"]))
+                        self.assertAlmostEqual(float((title_center - (a + b) / 2) @ tangent), 0, places=6)
+                        if axis == "z":
+                            self.assertAlmostEqual(title["rotation"], -90)
                     self.assertAlmostEqual(max(gaps), min(gaps), places=6)
                     self.assertGreater(min(gaps), 0)
 

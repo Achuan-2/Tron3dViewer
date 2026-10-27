@@ -242,7 +242,7 @@ def export_pdf(
             # drawText takes a baseline; center the visible glyphs on the anchor.
             painter.save()
             painter.translate(x, y)
-            painter.rotate(-item.get("rotation", 0))
+            painter.rotate(item.get("rotation", 0))
             painter.drawText(QPointF(-bounds.center().x(), -bounds.center().y()), item["text"])
             painter.restore()
     finally:
