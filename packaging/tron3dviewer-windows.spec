@@ -8,12 +8,12 @@ root = Path.cwd()
 vispy = Path(importlib.util.find_spec("vispy").origin).parent
 
 a = Analysis(
-    [str(root / "packaging" / "openimaris_launcher.py")],
+    [str(root / "packaging" / "tron3dviewer_launcher.py")],
     pathex=[str(root)],
     binaries=[],
     datas=[
-        (str(root / "tron3d" / "assets"), "tron3d/assets"),
-        (str(root / "tron3d" / "i18n"), "tron3d/i18n"),
+        (str(root / "tron3dviewer" / "assets"), "tron3dviewer/assets"),
+        (str(root / "tron3dviewer" / "i18n"), "tron3dviewer/i18n"),
         (str(vispy / "glsl"), "vispy/glsl"),
         (str(vispy / "io" / "_data"), "vispy/io/_data"),
     ],
@@ -33,7 +33,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="OpenImaris",
+    name="tron3dviewer",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -46,5 +46,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=[str(root / "build" / "OpenImaris.ico")],
+    icon=[str(root / "build" / "tron3dviewer.ico")],
 )

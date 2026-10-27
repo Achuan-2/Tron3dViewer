@@ -1,4 +1,4 @@
-"""Save native image data and OpenImaris display settings in one IMS file."""
+"""Save native image data and tron3dviewer display settings in one IMS file."""
 
 from datetime import datetime, timedelta
 import json
@@ -59,7 +59,7 @@ def _write_tiff_data(ims, source: Path) -> None:
         _attributes(time_info, **{f"TimePoint{time + 1}": (now + timedelta(seconds=time)).strftime("%Y-%m-%d %H:%M:%S.000")})
     _attributes(ims, ImarisDataSet="ImarisDataSet", ImarisVersion="5.5.0", DataSetDirectoryName="DataSet",
                 DataSetInfoDirectoryName="DataSetInfo", ThumbnailDirectoryName="Thumbnail")
-    _attributes(ims.require_group("DataSetInfo/ImarisDataSet"), Creator="OpenImaris", NumberOfImages=1, Version="5.5")
+    _attributes(ims.require_group("DataSetInfo/ImarisDataSet"), Creator="tron3dviewer", NumberOfImages=1, Version="5.5")
     _attributes(ims.require_group("DataSetInfo/Image"), X=channels[0].shape[2], Y=channels[0].shape[1],
                 Z=channels[0].shape[0], Noc=len(channels), Name=source.name)
 
@@ -101,7 +101,7 @@ def _write_settings(ims, data: VolumeData, state: dict, destination: Path) -> No
                 Version="5.5", ThumbnailMode="thumbnailMIP")
     if VIEW_STATE_PATH in ims:
         del ims[VIEW_STATE_PATH]
-    ims.require_group("OpenImaris").create_dataset(
+    ims.require_group("tron3dviewer").create_dataset(
         "ViewState", data=json.dumps(state, ensure_ascii=False, allow_nan=False), dtype=h5py.string_dtype("utf-8"),
     )
     _write_thumbnail(ims, data, state)

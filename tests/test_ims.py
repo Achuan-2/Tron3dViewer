@@ -7,9 +7,9 @@ import h5py
 import numpy as np
 import tifffile
 
-from tron3d.data import _ims_number, load_volume
-from tron3d.ims import _attributes, save_ims
-from tron3d.session import VIEW_STATE_PATH
+from tron3dviewer.data import _ims_number, load_volume
+from tron3dviewer.ims import _attributes, save_ims
+from tron3dviewer.session import LEGACY_VIEW_STATE_PATHS, VIEW_STATE_PATH
 
 
 def display_state(channel_count=2):
@@ -51,6 +51,9 @@ class ImsSavingTest(unittest.TestCase):
         for index, channel in enumerate(restored.channels):
             np.testing.assert_array_equal(channel, self.pixels[0, index])
         with h5py.File(path, "r") as ims:
+            self.assertIn("tron3dviewer/ViewState", ims)
+            for legacy in LEGACY_VIEW_STATE_PATHS:
+                self.assertNotIn(legacy, ims)
             for time in range(2):
                 for channel in range(2):
                     group = ims[f"DataSet/ResolutionLevel 0/TimePoint {time}/Channel {channel}"]
@@ -58,6 +61,23 @@ class ImsSavingTest(unittest.TestCase):
                     self.assertEqual(group["Data"].dtype, self.pixels.dtype)
                     self.assertEqual(group["Histogram"][:].sum(), 5 * 6 * 7)
             self.assertEqual(ims["Thumbnail/Data"].shape, (256, 1024))
+
+    def test_legacy_display_settings_are_read_and_upgraded(self):
+        for index, legacy in enumerate(LEGACY_VIEW_STATE_PATHS):
+            with self.subTest(legacy=legacy):
+                path = self.root / f"legacy_{index}.ims"
+                state = display_state()
+                save_ims(load_volume(self.source), path, state)
+                with h5py.File(path, "r+") as ims:
+                    ims.require_group(legacy.rsplit("/", 1)[0])
+                    ims.move(VIEW_STATE_PATH, legacy)
+                restored = load_volume(path)
+                self.assertEqual(restored.view_state, state)
+                state["camera"]["roll"] = 42.0
+                save_ims(restored, path, state)
+                with h5py.File(path, "r") as ims:
+                    self.assertIn(VIEW_STATE_PATH, ims)
+                self.assertEqual(load_volume(path).view_state, state)
 
     def test_ims_copy_and_in_place_save_preserve_other_resolutions_and_objects(self):
         source = self.root / "original.ims"
@@ -100,7 +120,7 @@ class ImsSavingTest(unittest.TestCase):
     def test_failed_write_does_not_overwrite_existing_file(self):
         output = self.root / "existing.ims"
         output.write_bytes(b"existing destination")
-        with patch("tron3d.ims._write_settings", side_effect=OSError("disk full")):
+        with patch("tron3dviewer.ims._write_settings", side_effect=OSError("disk full")):
             with self.assertRaisesRegex(OSError, "disk full"):
                 save_ims(load_volume(self.source), output, display_state())
         self.assertEqual(output.read_bytes(), b"existing destination")

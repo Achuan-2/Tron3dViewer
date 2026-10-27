@@ -2,12 +2,12 @@
 
 
 a = Analysis(
-    ['build/openimaris_launcher.py'],
+    ['packaging/tron3dviewer_launcher.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('tron3d/assets', 'tron3d/assets'),
-        ('tron3d/i18n', 'tron3d/i18n'),
+        ('tron3dviewer/assets', 'tron3dviewer/assets'),
+        ('tron3dviewer/i18n', 'tron3dviewer/i18n'),
         ('.venv/Lib/site-packages/vispy/glsl', 'vispy/glsl'),
         ('.venv/Lib/site-packages/vispy/io/_data', 'vispy/io/_data'),
     ],
@@ -27,7 +27,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='OpenImaris',
+    name='tron3dviewer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +40,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['build/openimaris.ico'],
+    icon=['build/tron3dviewer.ico'],
 )

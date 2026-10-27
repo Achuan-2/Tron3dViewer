@@ -6,8 +6,8 @@ from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from tron3d.i18n import set_language
-from tron3d.widgets import NoWheelSlider, PdfExportDialog
+from tron3dviewer.i18n import set_language
+from tron3dviewer.widgets import NoWheelSlider, PdfExportDialog
 
 
 class WidgetsTest(unittest.TestCase):

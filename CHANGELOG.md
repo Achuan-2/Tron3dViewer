@@ -11,7 +11,7 @@
 - README 新增 retina 软件截图及 PNG、PDF 导出效果
 
 ## v0.1.0 / 20261027
-- 软件更名为 Tron 3D viewer，新增 `uv run tron3d` 启动命令
+- 软件更名为 Tron 3D viewer，新增 `uv run tron3dviewer` 启动命令
 - 侧栏改为六组标签页，默认三维视角调整为 45°
 - 支持中文和英文界面实时切换
 - 支持 IMS 显示设置保存、空间校准及 PNG/PDF 导出

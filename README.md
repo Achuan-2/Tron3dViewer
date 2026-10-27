@@ -4,7 +4,7 @@
 </p>
 
 <div align="center">
-  <img src="tron3d/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
+  <img src="tron3dviewer/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
 
   # Tron 3D viewer
 
@@ -56,8 +56,8 @@
 ### 使用 uv（推荐）
 
 ```bash
-git clone https://github.com/Achuan-2/openimaris.git
-cd openimaris
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 uv sync
 ```
 
@@ -66,8 +66,8 @@ uv sync
 在已有的 Python 3.11+ 环境中执行：
 
 ```bash
-git clone https://github.com/Achuan-2/openimaris.git
-cd openimaris
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 python -m pip install .
 ```
 
@@ -78,20 +78,20 @@ python -m pip install .
 使用 uv：
 
 ```bash
-uv run tron3d
+uv run tron3dviewer
 ```
 
 使用 pip 安装后：
 
 ```bash
-tron3d
+tron3dviewer
 ```
 
 也可以在启动时直接打开图像：
 
 ```bash
-tron3d "path/to/image.ims"
-tron3d "path/to/image.tif"
+tron3dviewer "path/to/image.ims"
+tron3dviewer "path/to/image.tif"
 ```
 
 ### 查看与调整图像

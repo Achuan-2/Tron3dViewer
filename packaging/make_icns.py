@@ -5,10 +5,10 @@ from PySide6.QtGui import QGuiApplication, QIcon
 
 
 root = Path(__file__).resolve().parents[1]
-iconset = root / "build" / "OpenImaris.iconset"
+iconset = root / "build" / "tron3dviewer.iconset"
 iconset.mkdir(parents=True, exist_ok=True)
 app = QGuiApplication([])
-icon = QIcon(str(root / "tron3d" / "assets" / "icon.svg"))
+icon = QIcon(str(root / "tron3dviewer" / "assets" / "icon.svg"))
 if icon.isNull():
     raise RuntimeError("无法读取应用图标")
 
@@ -21,6 +21,6 @@ for base_size in (16, 32, 128, 256, 512):
             raise RuntimeError(f"无法生成图标：{destination}")
 
 subprocess.run(
-    ["iconutil", "--convert", "icns", str(iconset), "--output", str(root / "build" / "OpenImaris.icns")],
+    ["iconutil", "--convert", "icns", str(iconset), "--output", str(root / "build" / "tron3dviewer.icns")],
     check=True,
 )

@@ -9,7 +9,7 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
 import tifffile
 
-from tron3d.main_window import MainWindow
+from tron3dviewer.main_window import MainWindow
 
 
 class FileDropTest(unittest.TestCase):
@@ -65,7 +65,7 @@ class FileDropTest(unittest.TestCase):
         source = self.directory / 'stack.tif'
         pixels = np.arange(5 * 6 * 7, dtype=np.uint16).reshape(5, 6, 7)
         tifffile.imwrite(source, pixels, photometric='minisblack', metadata={'axes': 'ZYX'})
-        with patch('tron3d.main_window.QMessageBox.critical') as error:
+        with patch('tron3dviewer.main_window.QMessageBox.critical') as error:
             self.drop([QUrl.fromLocalFile(str(source))])
             error.assert_not_called()
         self.assertEqual(self.window.data.source, source)

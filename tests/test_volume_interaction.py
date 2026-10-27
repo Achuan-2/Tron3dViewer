@@ -7,9 +7,9 @@ import numpy as np
 from PySide6.QtGui import QFont, QFontMetricsF, QImage
 from PySide6.QtWidgets import QApplication
 
-from tron3d.data import VolumeData
-from tron3d.exporter import _fit_pdf_content, _render_scene, pdf_figure_size, render_image
-from tron3d.volume_view import VolumeView
+from tron3dviewer.data import VolumeData
+from tron3dviewer.exporter import _fit_pdf_content, _render_scene, pdf_figure_size, render_image
+from tron3dviewer.volume_view import VolumeView
 
 
 class VolumeInteractionTest(unittest.TestCase):

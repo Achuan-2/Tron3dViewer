@@ -6,9 +6,9 @@ from PySide6.QtGui import QFont, QFontMetricsF, QImage
 from PySide6.QtWidgets import QApplication
 from vispy.visuals.transforms import MatrixTransform
 
-from tron3d.axes import AxisScene, _text_size, nice_spacing
-from tron3d.axis_layout import layout_axis_text
-from tron3d.exporter import _layout_pdf_ticks
+from tron3dviewer.axes import AxisScene, _text_size, nice_spacing
+from tron3dviewer.axis_layout import layout_axis_text
+from tron3dviewer.exporter import _layout_pdf_ticks
 
 
 class AutomaticSpacingTest(unittest.TestCase):

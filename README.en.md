@@ -4,7 +4,7 @@
 </p>
 
 <div align="center">
-  <img src="tron3d/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
+  <img src="tron3dviewer/assets/icon.svg" alt="Tron 3D viewer Logo" width="128">
 
   # Tron 3D viewer
 
@@ -56,8 +56,8 @@ These examples use the retina dataset with CollagenIV (red) and GFAP (green) cha
 ### Using uv (recommended)
 
 ```bash
-git clone https://github.com/Achuan-2/openimaris.git
-cd openimaris
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 uv sync
 ```
 
@@ -66,8 +66,8 @@ uv sync
 Run the following in an existing Python 3.11+ environment:
 
 ```bash
-git clone https://github.com/Achuan-2/openimaris.git
-cd openimaris
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 python -m pip install .
 ```
 
@@ -78,20 +78,20 @@ python -m pip install .
 With uv:
 
 ```bash
-uv run tron3d
+uv run tron3dviewer
 ```
 
 After installing with pip:
 
 ```bash
-tron3d
+tron3dviewer
 ```
 
 You can also open an image directly at launch:
 
 ```bash
-tron3d "path/to/image.ims"
-tron3d "path/to/image.tif"
+tron3dviewer "path/to/image.ims"
+tron3dviewer "path/to/image.tif"
 ```
 
 ### View and adjust images

@@ -9,7 +9,7 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 import tifffile
 
-from tron3d.main_window import MainWindow
+from tron3dviewer.main_window import MainWindow
 
 
 class SessionWindowTest(unittest.TestCase):
@@ -23,7 +23,7 @@ class SessionWindowTest(unittest.TestCase):
         self.directory = Path(directory.name)
         self.settings = QSettings(str(self.directory / "settings.ini"), QSettings.Format.IniFormat)
         self.settings.setValue("language", "zh_CN")
-        settings_patch = patch("tron3d.main_window.QSettings", return_value=self.settings)
+        settings_patch = patch("tron3dviewer.main_window.QSettings", return_value=self.settings)
         settings_patch.start()
         self.addCleanup(settings_patch.stop)
 
@@ -36,7 +36,7 @@ class SessionWindowTest(unittest.TestCase):
     def test_language_is_saved_and_restored(self):
         settings = Mock()
         settings.value.return_value = "en"
-        with patch("tron3d.main_window.QSettings", return_value=settings):
+        with patch("tron3dviewer.main_window.QSettings", return_value=settings):
             window = MainWindow()
             self.addCleanup(window.close)
             self.addCleanup(window.volume_view.canvas.close)
@@ -89,7 +89,7 @@ class SessionWindowTest(unittest.TestCase):
         window._save_ims_to(saved)
         # Re-read the settings file to verify persistence beyond this instance.
         settings = QSettings(self.settings.fileName(), QSettings.Format.IniFormat)
-        with patch("tron3d.main_window.QSettings", return_value=settings):
+        with patch("tron3dviewer.main_window.QSettings", return_value=settings):
             restored = self.make_window()
         restored.open_volume(str(source))
         self.assertEqual(restored.volume_view.axes.visibility, expected)
@@ -105,7 +105,7 @@ class SessionWindowTest(unittest.TestCase):
             pixels = np.arange(2 * 5 * 6 * 7, dtype=np.uint16).reshape(2, 5, 6, 7)
             tifffile.imwrite(source, pixels, photometric="minisblack", metadata={"axes": "CZYX"})
             window = self.make_window()
-            with patch("tron3d.main_window.QMessageBox.critical") as error:
+            with patch("tron3dviewer.main_window.QMessageBox.critical") as error:
                 window.open_volume(str(source))
                 error.assert_not_called()
                 window.spatial_mode.setCurrentIndex(0)
@@ -146,7 +146,7 @@ class SessionWindowTest(unittest.TestCase):
                 error.assert_not_called()
             self.assertEqual(window.data.source, output)
             restored = self.make_window()
-            with patch("tron3d.main_window.QMessageBox.critical") as error:
+            with patch("tron3dviewer.main_window.QMessageBox.critical") as error:
                 restored.open_volume(str(output))
                 error.assert_not_called()
             actual = restored.volume_view.capture_view_state(restored.channel_settings, restored.channel_list.currentRow())
@@ -164,10 +164,10 @@ class SessionWindowTest(unittest.TestCase):
             self.assertFalse(restored.volume_view.volumes[1].visible)
             self.assertEqual(restored.volume_view.volumes[1].gamma, 1.35)
             self.assertAlmostEqual(restored.volume_view.volumes[1].opacity, 0.35)
-            with patch("tron3d.main_window.QFileDialog.getSaveFileName") as dialog:
+            with patch("tron3dviewer.main_window.QFileDialog.getSaveFileName") as dialog:
                 restored.save_current()
                 dialog.assert_not_called()
-            with patch("tron3d.main_window.QMessageBox.critical") as error:
+            with patch("tron3dviewer.main_window.QMessageBox.critical") as error:
                 restored.open_volume(str(source))
                 error.assert_not_called()
             self.assertEqual(restored.volume_view.background, "black")

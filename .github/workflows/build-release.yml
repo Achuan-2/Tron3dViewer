@@ -19,13 +19,13 @@ jobs:
           - runner: windows-latest
             name: Windows-x86_64
             os: Windows
-            spec: packaging/OpenImaris-windows.spec
-            artifact: Tron3d-Windows-x86_64.exe
+            spec: packaging/tron3dviewer-windows.spec
+            artifact: tron3dviewer-Windows-x86_64.exe
           - runner: macos-14
             name: macOS-arm64
             os: macOS
-            spec: packaging/OpenImaris-mac.spec
-            artifact: Tron3d-macOS-arm64.dmg
+            spec: packaging/tron3dviewer-mac.spec
+            artifact: tron3dviewer-macOS-arm64.dmg
     runs-on: ${{ matrix.runner }}
 
     steps:
@@ -58,17 +58,17 @@ jobs:
 
       - name: Name Windows executable
         if: matrix.os == 'Windows'
-        run: Copy-Item dist/OpenImaris.exe "dist/${{ matrix.artifact }}"
+        run: Copy-Item dist/tron3dviewer.exe "dist/${{ matrix.artifact }}"
 
       - name: Create DMG
         if: matrix.os == 'macOS'
         run: |
           rm -rf build/dmg
           mkdir -p build/dmg
-          ditto dist/OpenImaris.app build/dmg/OpenImaris.app
+          ditto dist/tron3dviewer.app build/dmg/tron3dviewer.app
           ln -s /Applications build/dmg/Applications
           hdiutil create \
-            -volname OpenImaris \
+            -volname tron3dviewer \
             -srcfolder build/dmg \
             -ov \
             -format UDZO \
@@ -77,7 +77,7 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: Tron3d-${{ matrix.name }}
+          name: tron3dviewer-${{ matrix.name }}
           path: dist/${{ matrix.artifact }}
           if-no-files-found: error
 
@@ -96,12 +96,12 @@ jobs:
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
-          pattern: Tron3d-*
+          pattern: tron3dviewer-*
           path: release
           merge-multiple: true
 
       - name: Create checksums
-        run: sha256sum release/Tron3d-* > release/SHA256SUMS
+        run: sha256sum release/tron3dviewer-* > release/SHA256SUMS
 
       - name: Publish release
         shell: bash

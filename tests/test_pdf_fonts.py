@@ -9,7 +9,7 @@ from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF
 from PySide6.QtGui import QFont, QFontInfo, QPainter, QPdfWriter
 from PySide6.QtWidgets import QApplication
 
-from tron3d.pdf_fonts import use_system_arial
+from tron3dviewer.pdf_fonts import use_system_arial
 
 
 class PdfFontCompatibilityTest(unittest.TestCase):

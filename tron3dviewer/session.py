@@ -6,7 +6,9 @@ import math
 from .i18n import tr
 
 
-VIEW_STATE_PATH = "OpenImaris/ViewState"
+VIEW_STATE_PATH = "tron3dviewer/ViewState"
+# Persisted schemas remain readable after package and executable renames.
+LEGACY_VIEW_STATE_PATHS = ("tron3d/ViewState", "OpenImaris/ViewState")
 
 
 def validate_view_state(state: dict, channel_count: int) -> None:
@@ -58,10 +60,11 @@ def validate_view_state(state: dict, channel_count: int) -> None:
 
 
 def read_view_state(ims, channel_count: int) -> dict | None:
-    if VIEW_STATE_PATH not in ims:
+    path = next((path for path in (VIEW_STATE_PATH, *LEGACY_VIEW_STATE_PATHS) if path in ims), None)
+    if path is None:
         return None
     try:
-        state = json.loads(ims[VIEW_STATE_PATH].asstr()[()])
+        state = json.loads(ims[path].asstr()[()])
         validate_view_state(state, channel_count)
         return state
     except (ValueError, TypeError, AttributeError):
