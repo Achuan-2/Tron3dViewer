@@ -26,11 +26,6 @@ jobs:
             os: macOS
             spec: packaging/OpenImaris-mac.spec
             artifact: OpenImaris-macOS-arm64.dmg
-          - runner: macos-15-intel
-            name: macOS-x86_64
-            os: macOS
-            spec: packaging/OpenImaris-mac.spec
-            artifact: OpenImaris-macOS-x86_64.dmg
     runs-on: ${{ matrix.runner }}
 
     steps:
