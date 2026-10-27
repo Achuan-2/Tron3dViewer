@@ -21,7 +21,9 @@ from .pdf_fonts import use_system_arial
 from .volume_view import VolumeView
 
 
-def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Image.Image, list[dict], list]:
+def _render_scene(
+    view: VolumeView, scale: int, include_text: bool, *, vector_axis_lines: bool = False
+) -> tuple[Image.Image, list[dict], list]:
     if view.data is None:
         raise ValueError(tr("请先打开一幅三维图像"))
     if scale not in (1, 2, 4):
@@ -30,6 +32,7 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
     view.finish_interaction()
     original_size = view.canvas.size
     original_text_visibility = view.axes.text_visible
+    original_line_visibility = {kind: view.axes.visibility[kind] for kind in ("box", "grid")}
     width, height = original_size
     target = width * scale, height * scale
     if max(target) > 8192:
@@ -37,8 +40,12 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
 
     text_items = []
     frame = []
+    axis_lines = {}
     try:
         view.axes.set_text_visible(include_text)
+        if vector_axis_lines:
+            for kind in ("box", "grid"):
+                view.axes.set_visible(kind, False)
         if target != original_size:
             view.canvas.size = target
         view.canvas.update()
@@ -55,6 +62,14 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
                 view.axes._project(view.view.scene.transform, (x, y, z)) * projection_scale
                 for x in (0, size[0]) for y in (0, size[1]) for z in (0, size[2])
             ]
+            if vector_axis_lines:
+                for kind in ("box", "grid"):
+                    if original_line_visibility[kind] and view.axes.visuals.get(kind):
+                        positions = np.asarray(view.axes.visuals[kind][0].pos)
+                        axis_lines[kind] = [
+                            view.axes._project(view.view.scene.transform, point) * projection_scale
+                            for point in positions
+                        ]
             for item, source in zip(text_items, view.axes.visible_text_items()):
                 if item.get("axis") in ("x", "y", "z"):
                     axis = "xyz".index(item["axis"])
@@ -77,6 +92,8 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
                         item[key] = (point[0] * pixel_scale_x, point[1] * pixel_scale_y)
     finally:
         view.axes.set_text_visible(original_text_visibility)
+        for kind, visible in original_line_visibility.items():
+            view.axes.set_visible(kind, visible)
         if view.canvas.size != original_size:
             view.canvas.size = original_size
         view.canvas.update()
@@ -85,7 +102,9 @@ def _render_scene(view: VolumeView, scale: int, include_text: bool) -> tuple[Ima
     array = np.asarray(pixels)
     if array.ndim != 3 or array.shape[0] < 1 or array.shape[1] < 1:
         raise RuntimeError(tr("三维画面捕获失败"))
-    return Image.fromarray(array), text_items, frame
+    image = Image.fromarray(array)
+    image.info["axis_lines"] = axis_lines
+    return image, text_items, frame
 
 
 def render_image(view: VolumeView, scale: int = 1) -> Image.Image:
@@ -217,10 +236,13 @@ def export_pdf(
     height_cm: float = 12.0,
     font_size: float = 8.0,
     transparent_outside_frame: bool = True,
+    frame_width_pt: float = 1.0,
+    grid_width_pt: float = 0.5,
 ) -> tuple[int, int]:
-    if not all(np.isfinite(value) and value > 0 for value in (width_cm, height_cm, font_size)):
-        raise ValueError(tr("Figure 宽、高和字体大小必须是大于 0 的数值"))
-    image, text_items, frame = _render_scene(view, scale, include_text=False)
+    values = (width_cm, height_cm, font_size, frame_width_pt, grid_width_pt)
+    if not all(np.isfinite(value) and value > 0 for value in values):
+        raise ValueError(tr("Figure 宽、高、字体大小和线宽必须是大于 0 的数值"))
+    image, text_items, frame = _render_scene(view, scale, include_text=False, vector_axis_lines=True)
     rgb = image.convert("RGB")
     qimage = QImage(rgb.tobytes(), rgb.width, rgb.height, rgb.width * 3, QImage.Format.Format_RGB888).copy()
 
@@ -273,6 +295,17 @@ def export_pdf(
             painter.restore()
         else:
             painter.drawImage(page, qimage)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        for kind, width_pt in (("box", frame_width_pt), ("grid", grid_width_pt)):
+            points = np.asarray(image.info.get("axis_lines", {}).get(kind, []))
+            if len(points) == 0:
+                continue
+            color = (*view.axes.color[:3], 0.22 if kind == "grid" else view.axes.color[3])
+            painter.setPen(QPen(QColor.fromRgbF(*color), writer.resolution() / 72 * width_pt))
+            for start, end in zip(points[::2] * (sx, sy), points[1::2] * (sx, sy)):
+                painter.drawLine(QPointF(*start), QPointF(*end))
+        painter.restore()
         text_color = QColor("black") if transparent_outside_frame else QColor.fromRgbF(*view.axes.color[:3])
         painter.setPen(text_color)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)

@@ -64,6 +64,23 @@ class PdfColorTest(unittest.TestCase):
             self.assertNotIn("/FontFile2", font["/FontDescriptor"].get_object())
             self.assertIn("100 µm", page.extract_text())
 
+    def test_frame_and_grid_use_configured_point_widths(self):
+        background = Image.new("RGB", (100, 100), "black")
+        background.info["axis_lines"] = {
+            "box": [(20, 20), (80, 20), (80, 20), (80, 80)],
+            "grid": [(50, 20), (50, 80)],
+        }
+        view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0.5, 0.5, 0.5, 1)))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "widths.pdf"
+            with patch("tron3d.exporter._render_scene", return_value=(background, [], [])):
+                export_pdf(view, path, transparent_outside_frame=False, frame_width_pt=2, grid_width_pt=0.5)
+            content = PdfReader(path).pages[0].get_contents().get_data().decode("ascii")
+            self.assertRegex(content, r"33\.3333\d* w")
+            grid_path = content.split("/GState", 1)[1].split(" gs\n", 1)[1].split("h f", 1)[0]
+            coordinates = [float(token) for token in grid_path.split() if token[0].isdigit()]
+            self.assertAlmostEqual(max(coordinates[::2]) - min(coordinates[::2]), 1200 / 72 * 0.5, places=3)
+
 
 @unittest.skipUnless(shutil.which("pdftocairo"), "Poppler is needed to inspect PDF transparency")
 class PdfFrameBackgroundTest(unittest.TestCase):

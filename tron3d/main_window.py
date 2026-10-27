@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSignalBlocker, Qt, QTimer
+from PySide6.QtCore import QSettings, QSignalBlocker, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QColor, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -44,6 +44,10 @@ class MainWindow(QMainWindow):
         self.data: VolumeData | None = None
         self.channel_settings: list[dict] = []
         self.updating_controls = False
+        self.settings = QSettings("Tron 3D viewer", "Tron 3D viewer")
+        saved_language = self.settings.value("language", current_language())
+        if saved_language in LANGUAGES:
+            set_language(saved_language)
 
         self.volume_view = VolumeView()
         self._create_menu()
@@ -145,6 +149,7 @@ class MainWindow(QMainWindow):
 
     def set_language(self, language: str) -> None:
         set_language(language)
+        self.settings.setValue("language", language)
         self.language_actions[language].setChecked(True)
         self.retranslate_ui()
         self.statusBar().showMessage(tr("打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放"), 5000)
@@ -221,6 +226,7 @@ class MainWindow(QMainWindow):
         spatial_form = QFormLayout(spatial_group)
         self.spatial_mode = NoWheelComboBox()
         self.spatial_mode.addItems(["体素大小 (µm/voxel)", "整体尺寸 (µm)"])
+        self.spatial_mode.setCurrentIndex(1)
         self.spatial_mode.currentIndexChanged.connect(self._spatial_mode_changed)
         spatial_form.addRow("输入方式", self.spatial_mode)
         self.spatial_spins = []
@@ -662,10 +668,13 @@ class MainWindow(QMainWindow):
         if self.data is None:
             return
         width, height = self.volume_view.canvas.size
-        dialog = PdfExportDialog(self, width / height)
+        dialog = PdfExportDialog(
+            self, width / height, show_grid=self.axis_checks["grid"].isChecked(), settings=self.settings,
+        )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        width_cm, height_cm, font_size, scale = dialog.values()
+        dialog.save_settings(self.settings)
+        width_cm, height_cm, font_size, scale, frame_width_pt, grid_width_pt = dialog.values()
         transparent_outside_frame = dialog.transparent_outside_frame_check.isChecked()
         default_path = self.data.source.with_name(self.data.source.stem + "_3D.pdf")
         path, _ = QFileDialog.getSaveFileName(self, tr("导出矢量文字 PDF"), str(default_path), tr("PDF 文档 (*.pdf)"))
@@ -677,6 +686,7 @@ class MainWindow(QMainWindow):
             lambda: export_pdf(
                 self.volume_view, destination, scale, width_cm, height_cm, font_size,
                 transparent_outside_frame=transparent_outside_frame,
+                frame_width_pt=frame_width_pt, grid_width_pt=grid_width_pt,
             ),
         )
 

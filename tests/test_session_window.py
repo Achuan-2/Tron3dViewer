@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 from PySide6.QtWidgets import QApplication
@@ -21,6 +21,18 @@ class SessionWindowTest(unittest.TestCase):
         self.addCleanup(window.close)
         self.addCleanup(window.volume_view.canvas.close)
         return window
+
+    def test_language_is_saved_and_restored(self):
+        settings = Mock()
+        settings.value.return_value = "en"
+        with patch("tron3d.main_window.QSettings", return_value=settings):
+            window = MainWindow()
+            self.addCleanup(window.close)
+            self.addCleanup(window.volume_view.canvas.close)
+            self.assertTrue(window.language_actions["en"].isChecked())
+            self.assertEqual(window.file_label.text(), "No image loaded")
+            window.set_language("zh_CN")
+            settings.setValue.assert_called_with("language", "zh_CN")
 
     def test_language_switches_all_sidebar_text_without_restarting(self):
         window = self.make_window()
@@ -58,6 +70,7 @@ class SessionWindowTest(unittest.TestCase):
             with patch("tron3d.main_window.QMessageBox.critical") as error:
                 window.open_volume(str(source))
                 error.assert_not_called()
+                window.spatial_mode.setCurrentIndex(0)
                 for spin, value in zip(window.spatial_spins, (2.5, 3.5, 4.5)):
                     spin.setValue(value)
                 window.apply_spatial_calibration()
@@ -102,7 +115,7 @@ class SessionWindowTest(unittest.TestCase):
             self.assertEqual(actual, expected)
             np.testing.assert_allclose(restored.volume_view.volumes[0].clim, original_clim)
             self.assertEqual(restored.data.voxel_size, (2.5, 3.5, 4.5))
-            self.assertEqual([spin.value() for spin in restored.spatial_spins], [2.5, 3.5, 4.5])
+            self.assertEqual([spin.value() for spin in restored.spatial_spins], [17.5, 21, 22.5])
             self.assertEqual([spin.value() for spin in restored.axis_spacing_spins], [2, 4, 6])
             self.assertEqual(restored.gamma_spin.value(), 1.35)
             self.assertEqual(restored.opacity_slider.value(), 35)

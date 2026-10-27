@@ -1,6 +1,7 @@
+import tempfile
 import unittest
 
-from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtCore import QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -36,6 +37,38 @@ class WidgetsTest(unittest.TestCase):
         dialog.height_spin.setValue(9.0)
         self.assertAlmostEqual(dialog.width_spin.value(), 12.0, places=2)
         self.assertAlmostEqual(dialog.width_spin.value() / dialog.height_spin.value(), 4 / 3, places=2)
+
+    def test_pdf_dialog_line_width_defaults_and_grid_visibility(self):
+        dialog = PdfExportDialog(None, 4 / 3)
+        self.addCleanup(dialog.close)
+        self.assertEqual(dialog.frame_width_spin.value(), 1.0)
+        self.assertEqual(dialog.grid_width_spin.value(), 0.5)
+        self.assertFalse(dialog.grid_width_spin.isHidden())
+        without_grid = PdfExportDialog(None, 4 / 3, show_grid=False)
+        self.addCleanup(without_grid.close)
+        self.assertTrue(without_grid.grid_width_spin.isHidden())
+
+    def test_pdf_dialog_remembers_settings_and_uses_current_aspect_ratio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(directory + "/settings.ini", QSettings.Format.IniFormat)
+            dialog = PdfExportDialog(None, 4 / 3, settings=settings)
+            self.addCleanup(dialog.close)
+            dialog.width_spin.setValue(20)
+            dialog.font_spin.setValue(10)
+            dialog.frame_width_spin.setValue(1.25)
+            dialog.grid_width_spin.setValue(0.75)
+            dialog.scale_combo.setCurrentIndex(2)
+            dialog.transparent_outside_frame_check.setChecked(False)
+            dialog.save_settings(settings)
+            restored = PdfExportDialog(None, 2.0, settings=settings)
+            self.addCleanup(restored.close)
+            self.assertEqual(restored.width_spin.value(), 20)
+            self.assertEqual(restored.height_spin.value(), 10)
+            self.assertEqual(restored.font_spin.value(), 10)
+            self.assertEqual(restored.frame_width_spin.value(), 1.25)
+            self.assertEqual(restored.grid_width_spin.value(), 0.75)
+            self.assertEqual(restored.scale_combo.currentIndex(), 2)
+            self.assertFalse(restored.transparent_outside_frame_check.isChecked())
 
     def test_slider_ignores_wheel_but_keeps_keyboard_control(self):
         slider = NoWheelSlider(Qt.Orientation.Horizontal)

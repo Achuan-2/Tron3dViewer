@@ -7,7 +7,7 @@ import numpy as np
 from PySide6.QtWidgets import QApplication
 
 from tron3d.data import VolumeData
-from tron3d.exporter import render_image
+from tron3d.exporter import _render_scene, render_image
 from tron3d.volume_view import VolumeView
 
 
@@ -36,6 +36,14 @@ class VolumeInteractionTest(unittest.TestCase):
         self.assertEqual(self.view.camera.elevation, 30)
         self.assertEqual(self.view.camera.azimuth, 60)
         self.assertEqual(self.view.camera.roll, 0)
+
+    def test_pdf_capture_separates_vector_lines_and_restores_visibility(self):
+        self.view.axes.set_visible("grid", False)
+        image, _, _ = _render_scene(self.view, 1, include_text=False, vector_axis_lines=True)
+        self.assertIn("box", image.info["axis_lines"])
+        self.assertNotIn("grid", image.info["axis_lines"])
+        self.assertTrue(self.view.axes.visuals["box"][0].visible)
+        self.assertFalse(self.view.axes.visuals["grid"][0].visible)
 
     def test_drag_batches_axis_updates_and_release_restores_each_channel(self):
         event = SimpleNamespace(type="mouse_move", is_dragging=True)
