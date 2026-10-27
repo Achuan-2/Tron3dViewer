@@ -28,6 +28,15 @@ class WidgetsTest(unittest.TestCase):
         self.assertTrue(dialog.transparent_outside_frame_check.isChecked())
         dialog.close()
 
+    def test_pdf_dialog_locks_aspect_ratio_when_either_dimension_changes(self):
+        dialog = PdfExportDialog(None, 4 / 3)
+        self.addCleanup(dialog.close)
+        dialog.width_spin.setValue(20.0)
+        self.assertAlmostEqual(dialog.height_spin.value(), 15.0, places=2)
+        dialog.height_spin.setValue(9.0)
+        self.assertAlmostEqual(dialog.width_spin.value(), 12.0, places=2)
+        self.assertAlmostEqual(dialog.width_spin.value() / dialog.height_spin.value(), 4 / 3, places=2)
+
     def test_slider_ignores_wheel_but_keeps_keyboard_control(self):
         slider = NoWheelSlider(Qt.Orientation.Horizontal)
         slider.setRange(0, 100)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, QSignalBlocker, Qt
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
 from .i18n import tr
 
@@ -99,8 +99,11 @@ class PdfExportDialog(QDialog):
             spin.setRange(1.0, 200.0)
             spin.setDecimals(2)
             spin.setSuffix(" cm")
+        self._aspect_ratio = aspect_ratio
         self.width_spin.setValue(16.0)
         self.height_spin.setValue(16.0 / aspect_ratio)
+        self.width_spin.valueChanged.connect(self._update_height)
+        self.height_spin.valueChanged.connect(self._update_width)
         self.font_spin.setRange(4.0, 48.0)
         self.font_spin.setDecimals(1)
         self.font_spin.setValue(8.0)
@@ -121,6 +124,14 @@ class PdfExportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _update_height(self, width: float) -> None:
+        blocker = QSignalBlocker(self.height_spin)
+        self.height_spin.setValue(width / self._aspect_ratio)
+
+    def _update_width(self, height: float) -> None:
+        blocker = QSignalBlocker(self.width_spin)
+        self.width_spin.setValue(height * self._aspect_ratio)
 
     def values(self) -> tuple[float, float, float, int]:
         return self.width_spin.value(), self.height_spin.value(), self.font_spin.value(), (1, 2, 4)[self.scale_combo.currentIndex()]

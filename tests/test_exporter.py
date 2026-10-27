@@ -47,6 +47,23 @@ class PdfColorTest(unittest.TestCase):
                     self.assertNotIn("/DCTDecode", str(embedded["/Filter"]))
                     np.testing.assert_array_equal(np.asarray(page.images[0].image.convert("RGB")), pixels)
 
+    def test_text_uses_editable_system_arial(self):
+        background = Image.new("RGB", (100, 100), "black")
+        frame = [(20, 20), (80, 20), (80, 80), (20, 80)]
+        items = [{"text": "100 µm", "x": 30, "y": 50, "kind": "ticks", "axis": "z"}]
+        view = SimpleNamespace(data=None, axes=SimpleNamespace(color=(0, 0, 0, 1)))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "arial.pdf"
+            with patch("tron3d.exporter._render_scene", return_value=(background, items, frame)):
+                export_pdf(view, path)
+            page = PdfReader(path).pages[0]
+            font = next(iter(page["/Resources"]["/Font"].values())).get_object()
+            self.assertEqual(font["/BaseFont"], "/Arial")
+            self.assertEqual(font["/Subtype"], "/TrueType")
+            self.assertEqual(font["/Encoding"], "/WinAnsiEncoding")
+            self.assertNotIn("/FontFile2", font["/FontDescriptor"].get_object())
+            self.assertIn("100 µm", page.extract_text())
+
 
 @unittest.skipUnless(shutil.which("pdftocairo"), "Poppler is needed to inspect PDF transparency")
 class PdfFrameBackgroundTest(unittest.TestCase):
