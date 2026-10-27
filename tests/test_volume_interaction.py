@@ -30,11 +30,11 @@ class VolumeInteractionTest(unittest.TestCase):
     def tearDown(self):
         self.view.canvas.close()
 
-    def test_reset_view_uses_45_degree_angles(self):
+    def test_reset_view_uses_default_oblique_angles(self):
         self.view.set_rotation(10, 20, 30)
         self.view.reset_view()
-        self.assertEqual(self.view.camera.elevation, 45)
-        self.assertEqual(self.view.camera.azimuth, 45)
+        self.assertEqual(self.view.camera.elevation, 30)
+        self.assertEqual(self.view.camera.azimuth, 60)
         self.assertEqual(self.view.camera.roll, 0)
 
     def test_drag_batches_axis_updates_and_release_restores_each_channel(self):

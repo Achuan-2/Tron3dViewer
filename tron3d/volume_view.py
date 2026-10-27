@@ -20,6 +20,10 @@ CHANNEL_COLORS = [
     (0.2, 0.4, 1.0),
 ]
 
+# Oblique default view matched to the reference framing.
+DEFAULT_ELEVATION = 30.0
+DEFAULT_AZIMUTH = 60.0
+
 
 class VolumeView:
     def __init__(self) -> None:
@@ -27,8 +31,8 @@ class VolumeView:
         self.view = self.canvas.central_widget.add_view()
         self.camera = FreeTurntableCamera(
             fov=0,
-            elevation=45,
-            azimuth=45,
+            elevation=DEFAULT_ELEVATION,
+            azimuth=DEFAULT_AZIMUTH,
             distance=1500,
             center=(0, 0, 0),
         )
@@ -244,8 +248,8 @@ class VolumeView:
         self.camera.center = tuple(value / 2 for value in size)
         self.camera.scale_factor = max(size) * 1.25
         self.camera.distance = max(size) * 2.4
-        self.camera.elevation = 45
-        self.camera.azimuth = 45
+        self.camera.elevation = DEFAULT_ELEVATION
+        self.camera.azimuth = DEFAULT_AZIMUTH
         self.camera.roll = 0
         self.sync_axes()
         self.canvas.update()
