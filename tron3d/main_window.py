@@ -4,8 +4,8 @@ import math
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSettings, QSignalBlocker, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QColor, QKeySequence
+from PySide6.QtCore import QMimeData, QSettings, QSignalBlocker, Qt, QTimer
+from PySide6.QtGui import QAction, QActionGroup, QColor, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractButton,
     QApplication,
@@ -52,6 +52,10 @@ class MainWindow(QMainWindow):
         self.volume_view = VolumeView()
         self._create_menu()
         self._create_sidebar()
+        # Route drops over the canvas and text inputs to the main window.
+        for widget in self.findChildren(QWidget):
+            widget.setAcceptDrops(False)
+        self.setAcceptDrops(True)
         self._bind_static_text()
         self.retranslate_ui()
         self.statusBar().showMessage(tr("打开 IMS / TIFF 图像开始三维查看；左键旋转，右键平移，滚轮缩放"))
@@ -364,6 +368,32 @@ class MainWindow(QMainWindow):
         spin.setDecimals(2)
         spin.setKeyboardTracking(False)
         return spin
+
+    @staticmethod
+    def _dropped_volume_path(mime_data: QMimeData) -> str | None:
+        for url in mime_data.urls():
+            if url.isLocalFile():
+                path = Path(url.toLocalFile())
+                if path.suffix.lower() in {".ims", ".tif", ".tiff"} and path.is_file():
+                    return str(path)
+        return None
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if self._dropped_volume_path(event.mimeData()) is None:
+            event.ignore()
+            return
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        path = self._dropped_volume_path(event.mimeData())
+        if path is None:
+            event.ignore()
+            return
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
+        # Finish the native drop before loading starts processing Qt events.
+        QTimer.singleShot(0, lambda: self.open_volume(path))
 
     def choose_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
