@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 import tifffile
 
@@ -15,6 +16,16 @@ class SessionWindowTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.directory = Path(directory.name)
+        self.settings = QSettings(str(self.directory / "settings.ini"), QSettings.Format.IniFormat)
+        self.settings.setValue("language", "zh_CN")
+        settings_patch = patch("tron3d.main_window.QSettings", return_value=self.settings)
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
 
     def make_window(self):
         window = MainWindow()
@@ -61,6 +72,31 @@ class SessionWindowTest(unittest.TestCase):
         self.assertTrue(window.tabs.widget(0).isAncestorOf(window.spatial_mode))
         for control in (window.channel_list, window.low_spin, window.gamma_spin, window.opacity_slider):
             self.assertTrue(window.tabs.widget(1).isAncestorOf(control))
+
+    def test_axis_visibility_defaults_and_preferences_survive_reopening(self):
+        window = self.make_window()
+        self.assertEqual(window.volume_view.axes.visibility,
+                         {"box": True, "grid": False, "ticks": True, "labels": True})
+        source = self.directory / "input.tif"
+        pixels = np.arange(3 * 4 * 5, dtype=np.uint16).reshape(3, 4, 5)
+        tifffile.imwrite(source, pixels, photometric="minisblack", metadata={"axes": "ZYX"})
+        expected = {"box": False, "grid": True, "ticks": False, "labels": False}
+        for kind, visible in expected.items():
+            window.axis_checks[kind].setChecked(visible)
+        window.open_volume(str(source))
+        self.assertEqual(window.volume_view.axes.visibility, expected)
+        saved = self.directory / "old-settings.ims"
+        window._save_ims_to(saved)
+        # Re-read the settings file to verify persistence beyond this instance.
+        settings = QSettings(self.settings.fileName(), QSettings.Format.IniFormat)
+        with patch("tron3d.main_window.QSettings", return_value=settings):
+            restored = self.make_window()
+        restored.open_volume(str(source))
+        self.assertEqual(restored.volume_view.axes.visibility, expected)
+        self.assertEqual({kind: check.isChecked() for kind, check in restored.axis_checks.items()}, expected)
+        restored.axis_checks["grid"].setChecked(False)
+        restored.open_volume(str(saved))
+        self.assertFalse(restored.volume_view.axes.visibility["grid"])
 
     def test_saved_ims_restores_camera_calibration_channels_and_sidebar(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -135,7 +171,8 @@ class SessionWindowTest(unittest.TestCase):
                 restored.open_volume(str(source))
                 error.assert_not_called()
             self.assertEqual(restored.volume_view.background, "black")
-            self.assertTrue(all(check.isChecked() for check in restored.axis_checks.values()))
+            self.assertEqual({kind: check.isChecked() for kind, check in restored.axis_checks.items()},
+                             {"box": True, "grid": False, "ticks": True, "labels": False})
 
 
 if __name__ == "__main__":

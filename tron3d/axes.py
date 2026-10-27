@@ -12,6 +12,9 @@ from vispy import scene
 from .axis_layout import choose_z_edge, layout_axis_text
 
 
+DEFAULT_AXIS_VISIBILITY = {"box": True, "grid": False, "ticks": True, "labels": True}
+
+
 @lru_cache(maxsize=1)
 def _axis_font():
     # Measure the same bundled face used by Vispy, without OS font substitution.
@@ -61,7 +64,7 @@ class AxisScene:
         self.size = (1.0, 1.0, 1.0)
         self.spacing = (1.0, 1.0, 1.0)
         self.color = (0.65, 0.68, 0.72, 1.0)
-        self.visibility = {"box": True, "grid": True, "ticks": True, "labels": True}
+        self.visibility = DEFAULT_AXIS_VISIBILITY.copy()
         self.visuals: dict[str, list] = {}
         self.text_visuals: list[tuple[str, object]] = []
         self.text_items: list[dict] = []

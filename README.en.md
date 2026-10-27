@@ -24,7 +24,7 @@
 - **Channel controls**: Independently adjust each channel's color, visibility, contrast, gamma, and opacity, with one-click automatic adjustment.
 - **Spatial calibration**: Read voxel sizes from image metadata, or recalibrate using voxel sizes or overall physical dimensions.
 - **Save and restore IMS**: Keep image data, voxel calibration, view, channel settings, Frame visibility, and tick spacing together and restore them when reopened in Tron 3D viewer.
-- **Customizable axes**: Show or hide the frame, grid, ticks, and labels independently, and customize tick spacing along X, Y, and Z.
+- **Customizable axes**: Show or hide the frame, grid, ticks, and labels independently, remember your last choices, and customize tick spacing along X, Y, and Z. The grid is hidden by default.
 - **High-quality exports**: Export PNG images at 1×, 2×, or 4× resolution, or PDFs with vector ticks and text for publication layouts.
 - **Large-image previews**: Automatically downsample according to data size and adapt rendering quality during interaction to balance responsiveness and still-image quality.
 - **Simple desktop interface**: A dark PySide6 interface displays image dimensions, channel count, voxel sizes, and physical dimensions in real time.
@@ -116,6 +116,8 @@ The View menu also provides a 3D view reset, XY/XZ/YZ orthogonal views, and Z-ax
 Use **File → Save IMS (文件 → 保存 IMS)** (`Ctrl+S`) to store image data, voxel calibration, camera position, zoom, channel settings, Frame visibility, and tick spacing in one IMS file. TIFF inputs prompt for an IMS destination. Use `Ctrl+Shift+S` to save a separate copy of an IMS file.
 
 Saving preserves the original image resolution, including the existing resolution levels, time points, and objects of an IMS source. Tron 3D viewer restores its saved view and Frame settings when the file is reopened.
+
+The Box, Grid, Ticks, and Labels switches follow your last application preferences, including when reopening an IMS file. Saving the IMS file is not required to remember these switches.
 
 ### Export images
 

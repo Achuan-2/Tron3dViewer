@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .axes import DEFAULT_AXIS_VISIBILITY
 from .data import VolumeData, load_volume
 from .exporter import export_pdf, export_png
 from .i18n import LANGUAGES, current_language, set_language, tr
@@ -48,8 +49,13 @@ class MainWindow(QMainWindow):
         saved_language = self.settings.value("language", current_language())
         if saved_language in LANGUAGES:
             set_language(saved_language)
+        self.axis_visibility = {
+            kind: bool(self.settings.value(f"axes/visibility/{kind}", default, type=bool))
+            for kind, default in DEFAULT_AXIS_VISIBILITY.items()
+        }
 
         self.volume_view = VolumeView()
+        self._apply_axis_visibility_preferences()
         self._create_menu()
         self._create_sidebar()
         # Route drops over the canvas and text inputs to the main window.
@@ -258,8 +264,8 @@ class MainWindow(QMainWindow):
         self.axis_checks = {}
         for kind, label in [("box", "Box"), ("grid", "Grid"), ("ticks", "Ticks"), ("labels", "Labels")]:
             check = QCheckBox(label)
-            check.setChecked(True)
-            check.toggled.connect(lambda visible, name=kind: self.volume_view.set_axis_visible(name, visible))
+            check.setChecked(self.axis_visibility[kind])
+            check.toggled.connect(lambda visible, name=kind: self._axis_visibility_changed(name, visible))
             self.axis_checks[kind] = check
             axis_checks.addWidget(check)
         axis_layout.addLayout(axis_checks)
@@ -412,6 +418,7 @@ class MainWindow(QMainWindow):
         try:
             data = load_volume(path)
             self.volume_view.set_volume(data)
+            self._apply_axis_visibility_preferences()
         except Exception as error:
             QMessageBox.critical(self, tr("无法打开图像"), str(error))
             self.statusBar().showMessage(tr("图像加载失败"))
@@ -455,6 +462,17 @@ class MainWindow(QMainWindow):
         for spin, value in zip(self.spatial_spins, values):
             spin.setValue(value)
         self.updating_controls = False
+
+    def _apply_axis_visibility_preferences(self) -> None:
+        # The last UI choice also applies when a file contains older settings.
+        for kind, visible in self.axis_visibility.items():
+            self.volume_view.set_axis_visible(kind, visible)
+
+    def _axis_visibility_changed(self, kind: str, visible: bool) -> None:
+        self.axis_visibility[kind] = visible
+        self.volume_view.set_axis_visible(kind, visible)
+        self.settings.setValue(f"axes/visibility/{kind}", visible)
+        self.settings.sync()
 
     def _refresh_axis_controls(self) -> None:
         if self.volume_view.axis_spacing is None:

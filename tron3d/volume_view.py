@@ -6,7 +6,7 @@ from vispy import scene
 from vispy.color import Colormap
 from vispy.visuals.transforms import STTransform
 
-from .axes import AxisScene, nice_spacing
+from .axes import DEFAULT_AXIS_VISIBILITY, AxisScene, nice_spacing
 from .camera import FreeTurntableCamera
 from .data import VolumeData
 
@@ -152,7 +152,7 @@ class VolumeView:
             self._apply_volume_style(index)
 
         self.axis_spacing = tuple(nice_spacing(size) for size in data.physical_size)
-        self.axes.visibility = dict.fromkeys(self.axes.visibility, True)
+        self.axes.visibility = DEFAULT_AXIS_VISIBILITY.copy()
         self.axes.color = (0.65, 0.68, 0.72, 1.0)
         self.axes.rebuild(data.physical_size, self.axis_spacing)
         self.reset_view()
