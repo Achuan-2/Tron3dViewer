@@ -45,54 +45,18 @@ These examples use the retina dataset with CollagenIV (red) and GFAP (green) cha
 
 ![PDF export of the retina dataset, previewed on a white page](docs/images/retina-pdf.png)
 
-## Requirements
-
-- Python **3.11 or later**
-- A graphics card and driver supporting **OpenGL 2.1 or later**
-- [uv](https://docs.astral.sh/uv/) is recommended for environment and dependency management
-
 ## Installation
 
-### Using uv (recommended)
+Go to [Releases](https://github.com/Achuan-2/tron3dviewer/releases/latest) and download the installer for your system:
 
-```bash
-git clone https://github.com/Achuan-2/tron3dviewer.git
-cd tron3dviewer
-uv sync
-```
+- **Windows**: Download and run the `.exe` installer.
+- **macOS**: Download the `.dmg` installer, open it, and drag the app into Applications.
 
-### Using pip
-
-Run the following in an existing Python 3.11+ environment:
-
-```bash
-git clone https://github.com/Achuan-2/tron3dviewer.git
-cd tron3dviewer
-python -m pip install .
-```
+The installers include the runtime environment, so you do not need to install Python separately.
 
 ## Usage
 
-### Launch the application
-
-With uv:
-
-```bash
-uv run tron3dviewer
-```
-
-After installing with pip:
-
-```bash
-tron3dviewer
-```
-
-You can also open an image directly at launch:
-
-```bash
-tron3dviewer "path/to/image.ims"
-tron3dviewer "path/to/image.tif"
-```
+Launch the app, then open an IMS or TIFF image.
 
 ### View and adjust images
 
@@ -134,9 +98,26 @@ The Box, Grid, Ticks, and Labels switches follow your last application preferenc
 
 ## Development
 
-Set up the development environment and run the tests:
+Development requires Python **3.11 or later**, a graphics card and driver supporting **OpenGL 2.1 or later**, and [uv](https://docs.astral.sh/uv/) for installing dependencies and launching the app.
+
+### Install and launch
 
 ```bash
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 uv sync
+uv run tron3dviewer
+```
+
+You can also open an image directly at launch:
+
+```bash
+uv run tron3dviewer "path/to/image.ims"
+uv run tron3dviewer "path/to/image.tif"
+```
+
+### Run tests
+
+```bash
 uv run pytest
 ```

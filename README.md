@@ -45,54 +45,18 @@
 
 ![retina 数据的 PDF 导出效果，Frame 外部透明，白色页面预览](docs/images/retina-pdf.png)
 
-## 环境要求
-
-- Python **3.11 或更高版本**
-- 支持 **OpenGL 2.1 或更高版本**的显卡及驱动
-- 推荐使用 [uv](https://docs.astral.sh/uv/) 管理环境和依赖
-
 ## 安装
 
-### 使用 uv（推荐）
+前往 [Releases](https://github.com/Achuan-2/tron3dviewer/releases/latest) 下载对应系统的安装包：
 
-```bash
-git clone https://github.com/Achuan-2/tron3dviewer.git
-cd tron3dviewer
-uv sync
-```
+- **Windows**：下载 `.exe` 安装包并运行。
+- **macOS**：下载 `.dmg` 安装包，打开后将应用拖入“应用程序”。
 
-### 使用 pip
-
-在已有的 Python 3.11+ 环境中执行：
-
-```bash
-git clone https://github.com/Achuan-2/tron3dviewer.git
-cd tron3dviewer
-python -m pip install .
-```
+安装包已包含运行环境，无需单独安装 Python。
 
 ## 如何使用
 
-### 启动应用
-
-使用 uv：
-
-```bash
-uv run tron3dviewer
-```
-
-使用 pip 安装后：
-
-```bash
-tron3dviewer
-```
-
-也可以在启动时直接打开图像：
-
-```bash
-tron3dviewer "path/to/image.ims"
-tron3dviewer "path/to/image.tif"
-```
+启动应用后，即可打开 IMS 或 TIFF 图像。
 
 ### 查看与调整图像
 
@@ -134,9 +98,26 @@ Box、Grid、Ticks、Labels 的显示开关优先沿用软件记住的上次选�
 
 ## 开发
 
-安装开发环境并运行测试：
+开发环境需要 Python **3.11 或更高版本**、支持 **OpenGL 2.1 或更高版本**的显卡及驱动，并使用 [uv](https://docs.astral.sh/uv/) 安装依赖和启动应用。
+
+### 安装与启动
 
 ```bash
+git clone https://github.com/Achuan-2/tron3dviewer.git
+cd tron3dviewer
 uv sync
+uv run tron3dviewer
+```
+
+也可以在启动时直接打开图像：
+
+```bash
+uv run tron3dviewer "path/to/image.ims"
+uv run tron3dviewer "path/to/image.tif"
+```
+
+### 运行测试
+
+```bash
 uv run pytest
 ```
