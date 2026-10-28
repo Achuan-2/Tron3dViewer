@@ -59,9 +59,14 @@ jobs:
       - name: Build application
         run: uv run --with pyinstaller pyinstaller --noconfirm --clean "${{ matrix.spec }}"
 
-      - name: Name Windows executable
+      - name: Install Inno Setup
         if: matrix.os == 'Windows'
-        run: Copy-Item dist/tron3dviewer.exe "dist/tron3dviewer-${{ steps.version.outputs.version }}-Windows-x86_64.exe"
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build Windows installer
+        if: matrix.os == 'Windows'
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=${{ steps.version.outputs.version }}" "packaging/tron3dviewer-windows.iss"
 
       - name: Create DMG
         if: matrix.os == 'macOS'
@@ -81,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tron3dviewer-${{ steps.version.outputs.version }}-${{ matrix.name }}
-          path: dist/tron3dviewer-${{ steps.version.outputs.version }}-${{ matrix.name }}.*
+          path: dist/tron3dviewer-${{ steps.version.outputs.version }}-${{ matrix.name }}*
           if-no-files-found: error
 
   release:
