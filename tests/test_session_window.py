@@ -54,6 +54,7 @@ class SessionWindowTest(unittest.TestCase):
         self.assertEqual(window.windowTitle(), "Tron 3D viewer — 3D Microscopy Viewer")
         self.assertEqual(window.file_label.text(), "No image loaded")
         self.assertEqual(window.save_action.text(), "Save IMS")
+        self.assertEqual(window.about_action.text(), "About Tron 3D viewer")
         self.assertEqual(window.background_combo.itemText(0), "Black Background")
         self.assertEqual(
             [window.tabs.tabText(index) for index in range(window.tabs.count())],
@@ -63,6 +64,12 @@ class SessionWindowTest(unittest.TestCase):
         window.language_actions["zh_CN"].trigger()
         self.assertEqual(window.file_label.text(), "尚未加载图像")
         self.assertEqual(window.tabs.tabText(0), "空间校准")
+
+    def test_about_action_opens_dialog(self):
+        window = self.make_window()
+        with patch("tron3dviewer.main_window.AboutDialog.exec") as dialog_exec:
+            window.about_action.trigger()
+            dialog_exec.assert_called_once_with()
 
     def test_sidebar_groups_settings_into_tabs(self):
         window = self.make_window()

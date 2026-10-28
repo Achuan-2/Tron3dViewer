@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .about import AboutDialog
 from .axes import DEFAULT_AXIS_VISIBILITY
 from .data import VolumeData, load_volume
 from .exporter import export_pdf, export_png, pdf_figure_size
@@ -120,6 +121,14 @@ class MainWindow(QMainWindow):
             language_group.addAction(action)
             language_menu.addAction(action)
             self.language_actions[language] = action
+
+        help_menu = self.menuBar().addMenu("帮助(&H)")
+        self.about_action = QAction("关于 Tron 3D viewer", self)
+        self.about_action.triggered.connect(self.show_about)
+        help_menu.addAction(self.about_action)
+
+    def show_about(self) -> None:
+        AboutDialog(self).exec()
 
     def _bind_static_text(self) -> None:
         self._text_bindings = []
