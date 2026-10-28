@@ -2,6 +2,8 @@
 name = "tron3dviewer"
 version = "0.1.2"
 description = "Open-source 3D microscopy volume viewer with PDF export"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "h5py>=3.12,<4",

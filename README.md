@@ -116,3 +116,7 @@ uv run tron3dviewer "path/to/image.tif"
 ```bash
 uv run pytest
 ```
+
+## 许可证
+
+本项目采用 [GNU Affero General Public License v3.0](LICENSE)（AGPL-3.0-only）开源。
