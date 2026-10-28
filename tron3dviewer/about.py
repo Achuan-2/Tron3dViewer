@@ -12,6 +12,7 @@ from .i18n import tr
 
 
 GITHUB_URL = "https://github.com/Achuan-2/Tron3dViewer"
+DOI_URL = "https://doi.org/10.5281/zenodo.23724954"
 AUTHOR_URL = "https://github.com/Achuan-2"
 DONATION_URL = "https://pancake.waffo.ai/store/achuan-2-fdbho4ye/product/PROD_3F7Aa7c2NQlz9KmxcgxjQ7?type=onetime&currency=USD"
 
@@ -53,8 +54,10 @@ class AboutDialog(QDialog):
 
         self.author_label = self._link_label(f'{tr("作者")}: <a href="{AUTHOR_URL}">Achuan-2</a>')
         self.github_label = self._link_label(f'GitHub: <a href="{GITHUB_URL}">Achuan-2/Tron3dViewer</a>')
+        self.doi_label = self._link_label(f'DOI: <a href="{DOI_URL}">10.5281/zenodo.23724954</a>')
         layout.addWidget(self.author_label)
         layout.addWidget(self.github_label)
+        layout.addWidget(self.doi_label)
 
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.HLine)

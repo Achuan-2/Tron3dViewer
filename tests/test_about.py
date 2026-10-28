@@ -4,7 +4,7 @@ import unittest
 from PySide6.QtWidgets import QApplication
 
 from tron3dviewer import __version__
-from tron3dviewer.about import AUTHOR_URL, DONATION_URL, GITHUB_URL, AboutDialog
+from tron3dviewer.about import AUTHOR_URL, DOI_URL, DONATION_URL, GITHUB_URL, AboutDialog
 from tron3dviewer.i18n import set_language
 
 
@@ -24,9 +24,11 @@ class AboutDialogTest(unittest.TestCase):
         self.assertIn(__version__, dialog.windowTitle() + "".join(label.text() for label in dialog.findChildren(type(dialog.author_label))))
         self.assertIn(AUTHOR_URL, dialog.author_label.text())
         self.assertIn(GITHUB_URL, dialog.github_label.text())
+        self.assertIn(DOI_URL, dialog.doi_label.text())
         self.assertIn(html.escape(DONATION_URL, quote=True), dialog.donation_link.text())
         self.assertTrue(dialog.author_label.openExternalLinks())
         self.assertTrue(dialog.github_label.openExternalLinks())
+        self.assertTrue(dialog.doi_label.openExternalLinks())
         self.assertTrue(dialog.donation_link.openExternalLinks())
         self.assertFalse(dialog.qr_pixmap.isNull())
         self.assertFalse(dialog.qr_label.pixmap().isNull())

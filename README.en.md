@@ -12,6 +12,7 @@
 
   Open IMS and TIFF volumes, interactively adjust channels and viewing angles, and export images for scientific publications.
 
+  [![DOI](https://zenodo.org/badge/1434662977.svg)](https://doi.org/10.5281/zenodo.23724954)
   [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
   [![PySide6](https://img.shields.io/badge/UI-PySide6-41CD52?logo=qt&logoColor=white)](https://www.qt.io/qt-for-python)
   [![OpenGL](https://img.shields.io/badge/OpenGL-2.1%2B-5586A4)](https://www.opengl.org/)
