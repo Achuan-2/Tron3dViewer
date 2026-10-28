@@ -123,6 +123,12 @@ uv run tron3dviewer "path/to/image.tif"
 uv run pytest
 ```
 
+## Citation
+
+If you use Tron 3D viewer in your research, please cite the software using the following DOI:
+
+[![DOI](https://zenodo.org/badge/1434662977.svg)](https://doi.org/10.5281/zenodo.23724954)
+
 ## Buy Me a Coffee
 
 If you find this project helpful, you can [buy me a coffee](https://pancake.waffo.ai/store/achuan-2-fdbho4ye/product/PROD_3F7Aa7c2NQlz9KmxcgxjQ7?type=onetime&currency=USD).

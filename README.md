@@ -118,6 +118,12 @@ uv run tron3dviewer "path/to/image.tif"
 uv run pytest
 ```
 
+## 引用本项目
+
+如果您在科研工作中使用了 Tron 3D viewer，欢迎通过以下 DOI 引用本软件：
+
+[![DOI](https://zenodo.org/badge/1434662977.svg)](https://doi.org/10.5281/zenodo.23724954)
+
 ## 用爱发电
 
 欢迎给我买杯咖啡。
