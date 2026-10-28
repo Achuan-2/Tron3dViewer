@@ -78,7 +78,7 @@ class VolumeInteractionTest(unittest.TestCase):
                 font.setPointSizeF(font_size)
                 sx, sy, _, _ = _fit_pdf_content(
                     items, frame, image.info["axis_lines"], QFontMetricsF(font, device),
-                    np.asarray(dimensions) * 1200 / 2.54, 1200 / 72, 1200 / 72 * 0.5,
+                    np.asarray(dimensions) * 1200 / 2.54, 1200 / 72 * 0.5, 1200 / 72 * 0.5,
                 )
                 self.assertAlmostEqual(sx / sy, 1.0, places=5)
 

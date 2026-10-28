@@ -116,7 +116,7 @@ class PdfExportDialog(QDialog):
         self.font_spin.setValue(saved("font_size", 8.0, float))
         self.font_spin.setSuffix(" pt")
         for spin, key, value in (
-            (self.frame_width_spin, "frame_width_pt", 1.0), (self.grid_width_spin, "grid_width_pt", 0.5),
+            (self.frame_width_spin, "frame_width_pt", 0.5), (self.grid_width_spin, "grid_width_pt", 0.5),
         ):
             spin.setRange(0.1, 20.0)
             spin.setDecimals(2)

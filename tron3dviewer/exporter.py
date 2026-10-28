@@ -249,7 +249,7 @@ def _fit_pdf_content(items, frame, axis_lines, metrics, size, frame_width, grid_
 
 
 def pdf_figure_size(view: VolumeView, *, width_cm: float | None = None, height_cm: float | None = None,
-                    font_size: float = 8.0, frame_width_pt: float = 1.0,
+                    font_size: float = 8.0, frame_width_pt: float = 0.5,
                     grid_width_pt: float = 0.5) -> tuple[float, float]:
     """Size the tight page without rendering or changing the current camera.
 
@@ -327,7 +327,7 @@ def export_pdf(
     height_cm: float = 12.0,
     font_size: float = 8.0,
     transparent_outside_frame: bool = True,
-    frame_width_pt: float = 1.0,
+    frame_width_pt: float = 0.5,
     grid_width_pt: float = 0.5,
 ) -> tuple[int, int]:
     values = (width_cm, height_cm, font_size, frame_width_pt, grid_width_pt)

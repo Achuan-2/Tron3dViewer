@@ -41,7 +41,7 @@ class WidgetsTest(unittest.TestCase):
     def test_pdf_dialog_line_width_defaults_and_grid_visibility(self):
         dialog = PdfExportDialog(None, 4 / 3)
         self.addCleanup(dialog.close)
-        self.assertEqual(dialog.frame_width_spin.value(), 1.0)
+        self.assertEqual(dialog.frame_width_spin.value(), 0.5)
         self.assertEqual(dialog.grid_width_spin.value(), 0.5)
         self.assertFalse(dialog.grid_width_spin.isHidden())
         without_grid = PdfExportDialog(None, 4 / 3, show_grid=False)
