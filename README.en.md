@@ -122,6 +122,11 @@ uv run tron3dviewer "path/to/image.tif"
 uv run pytest
 ```
 
+## Buy Me a Coffee
+
+If you find this project helpful, you can [buy me a coffee](https://pancake.waffo.ai/store/achuan-2-fdbho4ye/product/PROD_3F7Aa7c2NQlz9KmxcgxjQ7?type=onetime&currency=USD).
+
+
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).

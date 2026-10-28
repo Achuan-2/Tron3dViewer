@@ -117,6 +117,14 @@ uv run tron3dviewer "path/to/image.tif"
 uv run pytest
 ```
 
+## 用爱发电
+
+欢迎给我买杯咖啡。
+
+<img width="592" height="592" alt="赞助二维码" src="https://github.com/user-attachments/assets/7927f505-0b11-428c-906a-5a98a9e7d1ca" />
+
+Non-Chinese users can use this link to [buy me a coffee](https://pancake.waffo.ai/store/achuan-2-fdbho4ye/product/PROD_3F7Aa7c2NQlz9KmxcgxjQ7?type=onetime&currency=USD).
+
 ## 许可证
 
 本项目采用 [GNU Affero General Public License v3.0](LICENSE)（AGPL-3.0-only）开源。
